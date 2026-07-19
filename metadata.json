@@ -1,0 +1,6 @@
+{
+  "name": "Supreme Waste Removal Services",
+  "description": "Supreme Waste Removal Services Ltd is Plymouth's premium waste collection, property clearance, and man-and-van service. Offering fast photo quotations and responsible waste handling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,58 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --animate-marquee: marquee 25s linear infinite;
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-33.33333%);
+    }
+  }
+}
+
+/* Base custom styles to bridge Light and Dark themes */
+html {
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+}
+
+/* Custom styles for light/dark components */
+.dark .swr-site, .dark .swr-home {
+  --bg-color: #0a0a0a;
+  --text-color: #f3f4f6;
+}
+
+/* Utilities */
+.swr-global-header {
+  position: sticky;
+  top: 0;
+  width: 100%;
+}
+
+/* Hide scrollbar for layout tab sliders */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Accessibility reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none !important;
+    overflow-x: auto !important;
+    white-space: normal !important;
+  }
+}
