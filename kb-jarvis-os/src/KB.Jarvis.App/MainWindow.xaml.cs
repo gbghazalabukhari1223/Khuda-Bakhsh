@@ -68,6 +68,20 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (IsMinimizeIntent(command))
+        {
+            AddLog("Entering minimized worker mode. Windows remains running normally.");
+            WindowState = WindowState.Minimized;
+            return;
+        }
+
+        if (IsCloseJarvisIntent(command))
+        {
+            AddLog("Closing KB Jarvis only. No Windows power action was requested or executed.");
+            Application.Current.Shutdown();
+            return;
+        }
+
         var arguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var quoted = ExtractQuotedText(command);
         if (!string.IsNullOrWhiteSpace(quoted))
@@ -121,9 +135,32 @@ public partial class MainWindow : Window
                || normalized.Contains("developer kon");
     }
 
+    private static bool IsMinimizeIntent(string command)
+    {
+        var normalized = command.ToLowerInvariant();
+        return normalized.Contains("minimize yourself")
+               || normalized.Contains("minimize jarvis")
+               || normalized.Contains("khud ko minimize")
+               || normalized.Contains("background mode");
+    }
+
+    private static bool IsCloseJarvisIntent(string command)
+    {
+        var normalized = command.ToLowerInvariant();
+        var namesJarvis = normalized.Contains("jarvis")
+                          || normalized.Contains("your app")
+                          || normalized.Contains("yourself")
+                          || normalized.Contains("apni app");
+        var asksClose = normalized.Contains("close")
+                        || normalized.Contains("exit")
+                        || normalized.Contains("band ho")
+                        || normalized.Contains("band karo");
+        return namesJarvis && asksClose;
+    }
+
     private static string? ExtractQuotedText(string command)
     {
-        var match = Regex.Match(command, "[\"“”'](?<text>.+?)[\"“”']", RegexOptions.Singleline);
+        var match = Regex.Match(command, """["“”'](?<text>.+?)["“”']""", RegexOptions.Singleline);
         if (match.Success)
         {
             return match.Groups["text"].Value;
