@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "KB Jarvis OS Browser Companion",
-  "version": "11.2.0",
-  "description": "Native browser execution bridge for KB Jarvis OS. Developer: KB (Khuda Bakhsh).",
+  "version": "12.0.0",
+  "description": "Native browser execution bridge for KB Jarvis OS 12. Developer: KB (Khuda Bakhsh).",
   "permissions": [
     "tabs",
     "scripting",
@@ -20,7 +20,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "KB Jarvis OS Browser Companion",
+    "default_title": "KB Jarvis OS 12 Browser Companion",
     "default_popup": "popup.html"
   }
 }
