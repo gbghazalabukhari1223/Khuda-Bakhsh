@@ -35,8 +35,32 @@ jobs:
       - name: Restore
         run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
 
-      - name: Build
-        run: dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore
+      - name: Build and capture complete diagnostics
+        id: build
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/diagnostics | Out-Null
+          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore 2>&1 | Tee-Object artifacts/diagnostics/build.log
+          if ($LASTEXITCODE -ne 0) {
+            'failed' | Set-Content artifacts/diagnostics/build-status.txt
+            exit 1
+          }
+          'success' | Set-Content artifacts/diagnostics/build-status.txt
+
+      - name: Upload compiler diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v11-Compiler-Diagnostics
+          path: artifacts/diagnostics/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Stop after compiler failure
+        if: steps.build.outcome != 'success'
+        shell: pwsh
+        run: throw 'The native Windows build failed. Download the compiler diagnostics artifact for the complete error log.'
 
       - name: Publish self-contained native Windows EXE
         run: dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v11
@@ -55,6 +79,13 @@ jobs:
             "Built: $(Get-Date -Format o)",
             "SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
           ) | Set-Content 'artifacts/KB-Jarvis-OS-v11/BUILD_INFO.txt'
+
+      - name: Include Browser Companion and acceptance docs
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v11/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v11/README.md
+          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v11/ACCEPTANCE_TESTS.md
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
