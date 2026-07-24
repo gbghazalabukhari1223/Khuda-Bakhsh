@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>KB_Jarvis_OS</AssemblyName>
+    <RootNamespace>KB.Jarvis.App</RootNamespace>
+    <ApplicationIcon></ApplicationIcon>
+    <Version>11.0.0</Version>
+    <Authors>KB (Khuda Bakhsh)</Authors>
+    <Company>KB</Company>
+    <Product>KB Jarvis OS</Product>
+    <Description>Native autonomous Windows operating assistant developed by KB (Khuda Bakhsh).</Description>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+</Project>
