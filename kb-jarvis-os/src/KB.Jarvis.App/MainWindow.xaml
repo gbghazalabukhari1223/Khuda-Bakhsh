@@ -3,11 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="KB Jarvis OS"
         Width="1480" Height="900"
-        MinWidth="1020" MinHeight="680"
+        MinWidth="760" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
-        Background="#05070A"
+        Background="#030609"
         Foreground="{StaticResource TextBrush}">
     <Window.Resources>
         <Storyboard x:Key="CoreAnimation" RepeatBehavior="Forever">
@@ -17,15 +17,15 @@
         </Storyboard>
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="Margin" Value="0,3" />
-            <Setter Property="Padding" Value="14,11" />
+            <Setter Property="Padding" Value="12,10" />
         </Style>
         <Style x:Key="PanelBorder" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
-            <Setter Property="BorderBrush" Value="#234F61" />
+            <Setter Property="Background" Value="#C0081018" />
+            <Setter Property="BorderBrush" Value="#27586B" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="9" />
             <Setter Property="Padding" Value="12" />
         </Style>
         <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -37,28 +37,28 @@
 
     <Grid>
         <Grid.Background>
-            <RadialGradientBrush Center="0.5,0.42" RadiusX="0.8" RadiusY="0.8">
-                <GradientStop Color="#112434" Offset="0" />
-                <GradientStop Color="#06090D" Offset="0.58" />
+            <RadialGradientBrush Center="0.5,0.4" RadiusX="0.9" RadiusY="0.9">
+                <GradientStop Color="#12293B" Offset="0" />
+                <GradientStop Color="#060A10" Offset="0.55" />
                 <GradientStop Color="#020304" Offset="1" />
             </RadialGradientBrush>
         </Grid.Background>
         <Grid.RowDefinitions>
             <RowDefinition Height="58" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="96" />
+            <RowDefinition Height="92" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="#DD070A0F" BorderBrush="#1E5B70" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Border Grid.Row="0" Background="#E0060A0F" BorderBrush="#1E6076" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid Margin="16,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="36" Height="36" CornerRadius="18" BorderBrush="{StaticResource CyanBrush}" BorderThickness="1.5">
-                        <TextBlock Text="KB" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource CyanBrush}" />
+                    <Border Width="38" Height="38" CornerRadius="19" BorderBrush="#27DFFF" BorderThickness="1.5" Background="#15101C24">
+                        <TextBlock Text="KB" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="#42E7FF" />
                     </Border>
                     <StackPanel Margin="12,0,0,0">
-                        <TextBlock Text="KB JARVIS OS 12" FontSize="19" FontWeight="SemiBold" />
-                        <TextBlock Text="Live Voice · AI Planning · Verified Windows Tools · Developer: KB (Khuda Bakhsh)" FontSize="10" Foreground="{StaticResource MutedBrush}" />
+                        <TextBlock Text="KB JARVIS OS 13" FontSize="19" FontWeight="SemiBold" />
+                        <TextBlock Text="Multimodal Visual Operator · Existing Browser Sessions · Developer: KB (Khuda Bakhsh)" FontSize="10" Foreground="#83ABB9" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -70,17 +70,17 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Margin="14">
+        <Grid Grid.Row="1" Margin="12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" />
+                <ColumnDefinition x:Name="LeftColumn" Width="220" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition x:Name="RightColumn" Width="330" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="0,0,12,0">
+            <Border x:Name="LeftPanel" Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="0,0,10,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top">
-                        <TextBlock Text="COMMAND MODULES" Foreground="{StaticResource CyanBrush}" FontSize="11" Margin="4,2,0,10" />
+                        <TextBlock Text="COMMAND MODULES" Foreground="#2DDEFF" FontSize="11" Margin="4,2,0,9" />
                         <Button Style="{StaticResource NavButton}" Content="◉  Dashboard" Tag="Dashboard" Click="ModuleButton_Click" />
                         <Button Style="{StaticResource NavButton}" Content="◌  Voice" Tag="Voice" Click="ModuleButton_Click" />
                         <Button Style="{StaticResource NavButton}" Content="◈  WhatsApp" Tag="WhatsApp" Click="ModuleButton_Click" />
@@ -93,58 +93,58 @@
                         <Button Style="{StaticResource NavButton}" Content="◫  Memory" Tag="Memory" Click="ModuleButton_Click" />
                         <Button Style="{StaticResource NavButton}" Content="⚙  Settings" Click="OpenSettings_Click" />
                     </StackPanel>
-                    <Border DockPanel.Dock="Bottom" BorderBrush="#254C5B" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,16,0,0">
+                    <Border DockPanel.Dock="Bottom" BorderBrush="#285368" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,14,0,0">
                         <StackPanel>
-                            <TextBlock Text="SYSTEM IDENTITY" Foreground="{StaticResource CyanBrush}" FontSize="10" />
-                            <TextBlock Text="Assistant: Jarvis" Margin="0,8,0,0" />
+                            <TextBlock Text="SYSTEM IDENTITY" Foreground="#2DDEFF" FontSize="10" />
+                            <TextBlock Text="Assistant: Jarvis" Margin="0,7,0,0" />
                             <TextBlock Text="Developer: KB" />
-                            <TextBlock Text="Khuda Bakhsh" Foreground="{StaticResource MutedBrush}" />
-                            <TextBlock Text="Version 12.0.0" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" />
+                            <TextBlock Text="Khuda Bakhsh" Foreground="#85AAB7" />
+                            <TextBlock Text="Version 13.0.0" Foreground="#85AAB7" Margin="0,5,0,0" />
                         </StackPanel>
                     </Border>
                 </DockPanel>
             </Border>
 
             <Grid Grid.Column="1">
-                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="220"/></Grid.RowDefinitions>
-                <Border Grid.Row="0" Style="{StaticResource PanelBorder}" Margin="0,0,12,12">
+                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="210"/></Grid.RowDefinitions>
+                <Border Grid.Row="0" Style="{StaticResource PanelBorder}" Margin="0,0,10,10">
                     <Grid>
                         <Grid x:Name="DashboardSurface">
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid>
-                                <TextBlock Text="NEURAL EXECUTION CORE" Foreground="{StaticResource CyanBrush}" FontSize="12" />
+                                <TextBlock Text="NEURAL EXECUTION CORE" Foreground="#2DDEFF" FontSize="12" />
                                 <TextBlock x:Name="CoreStateText" Text="ONLINE · READY" HorizontalAlignment="Right" Foreground="#5DFF8C" FontSize="12" />
                             </Grid>
-                            <Viewbox Grid.Row="1" Stretch="Uniform" Margin="48,12">
+                            <Viewbox Grid.Row="1" Stretch="Uniform" Margin="34,8">
                                 <Grid Width="470" Height="470">
-                                    <Ellipse Width="430" Height="430" Stroke="#1B7996" StrokeThickness="2" StrokeDashArray="2,5" Opacity="0.7">
+                                    <Ellipse Width="430" Height="430" Stroke="#1B7996" StrokeThickness="2" StrokeDashArray="2,5" Opacity="0.75">
                                         <Ellipse.RenderTransform><RotateTransform x:Name="OuterRingRotate" CenterX="215" CenterY="215" /></Ellipse.RenderTransform>
                                     </Ellipse>
-                                    <Ellipse Width="340" Height="340" Stroke="#E82B48" StrokeThickness="2" StrokeDashArray="9,5" Opacity="0.65">
+                                    <Ellipse Width="340" Height="340" Stroke="#E82B48" StrokeThickness="2" StrokeDashArray="9,5" Opacity="0.7">
                                         <Ellipse.RenderTransform><RotateTransform x:Name="InnerRingRotate" CenterX="170" CenterY="170" /></Ellipse.RenderTransform>
                                     </Ellipse>
-                                    <Ellipse Width="250" Height="250" Stroke="#35DFFF" StrokeThickness="3" Opacity="0.7" />
+                                    <Ellipse Width="250" Height="250" Stroke="#35DFFF" StrokeThickness="3" Opacity="0.75" />
                                     <Ellipse x:Name="CoreGlow" Width="195" Height="195" Opacity="0.8">
                                         <Ellipse.Fill>
                                             <RadialGradientBrush>
                                                 <GradientStop Color="#E8FFFFFF" Offset="0" />
-                                                <GradientStop Color="#B821D9FF" Offset="0.35" />
-                                                <GradientStop Color="#1718A9D1" Offset="0.75" />
+                                                <GradientStop Color="#C821D9FF" Offset="0.35" />
+                                                <GradientStop Color="#2418A9D1" Offset="0.75" />
                                                 <GradientStop Color="#0018A9D1" Offset="1" />
                                             </RadialGradientBrush>
                                         </Ellipse.Fill>
                                     </Ellipse>
-                                    <Border Width="136" Height="136" CornerRadius="68" Background="#C007111A" BorderBrush="#63E9FF" BorderThickness="2">
+                                    <Border Width="142" Height="142" CornerRadius="71" Background="#D006111A" BorderBrush="#63E9FF" BorderThickness="2">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="JARVIS" HorizontalAlignment="Center" FontSize="22" FontWeight="Bold" Foreground="#E9FCFF" />
-                                            <TextBlock Text="KB LIVE CORE" HorizontalAlignment="Center" FontSize="11" Foreground="{StaticResource CyanBrush}" />
+                                            <TextBlock Text="KB VISION CORE" HorizontalAlignment="Center" FontSize="10" Foreground="#2DDEFF" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
                             </Viewbox>
-                            <StackPanel Grid.Row="2" HorizontalAlignment="Center" MaxWidth="700">
+                            <StackPanel Grid.Row="2" HorizontalAlignment="Center" MaxWidth="720">
                                 <TextBlock x:Name="MissionTitleText" Text="Awaiting your mission, Boss." FontSize="20" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-                                <TextBlock x:Name="MissionDetailText" Text="Configure Gemini, start listening, or enter a typed task." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                                <TextBlock x:Name="MissionDetailText" Text="Start voice, enable screen or camera vision, or enter a typed task." Foreground="#86AAB8" Margin="0,7,0,0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
 
@@ -152,7 +152,7 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid>
                                 <StackPanel>
-                                    <TextBlock x:Name="ModuleTitleText" Text="MODULE" Foreground="{StaticResource CyanBrush}" FontSize="12" />
+                                    <TextBlock x:Name="ModuleTitleText" Text="MODULE" Foreground="#2DDEFF" FontSize="12" />
                                     <TextBlock x:Name="ModuleSubtitleText" Text="Operational workspace" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,0" />
                                 </StackPanel>
                                 <Button Content="BACK TO CORE" HorizontalAlignment="Right" VerticalAlignment="Top" Click="BackToDashboard_Click" />
@@ -163,10 +163,10 @@
                                         <StackPanel>
                                             <TextBlock x:Name="ModuleStatusText" Text="READY" Foreground="#5DFF8C" FontSize="12" FontWeight="SemiBold" />
                                             <TextBlock x:Name="ModuleDescriptionText" Text="Module description" FontSize="17" TextWrapping="Wrap" Margin="0,10,0,0" />
-                                            <TextBlock x:Name="ModuleDetailsText" Text="Module details" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" LineHeight="21" />
+                                            <TextBlock x:Name="ModuleDetailsText" Text="Module details" Foreground="#86AAB8" TextWrapping="Wrap" Margin="0,12,0,0" LineHeight="21" />
                                         </StackPanel>
                                     </Border>
-                                    <TextBlock Text="AVAILABLE OPERATIONS" Foreground="{StaticResource CyanBrush}" FontSize="11" Margin="2,18,0,6" />
+                                    <TextBlock Text="AVAILABLE OPERATIONS" Foreground="#2DDEFF" FontSize="11" Margin="2,18,0,6" />
                                     <UniformGrid Columns="2">
                                         <Button x:Name="PrimaryModuleActionButton" Style="{StaticResource ActionButton}" Content="PRIMARY ACTION" Click="PrimaryModuleAction_Click" />
                                         <Button x:Name="SecondaryModuleActionButton" Style="{StaticResource ActionButton}" Content="SECONDARY ACTION" Click="SecondaryModuleAction_Click" />
@@ -178,11 +178,11 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="1" Style="{StaticResource PanelBorder}" Margin="0,0,12,0">
+                <Border Grid.Row="1" Style="{StaticResource PanelBorder}" Margin="0,0,10,0">
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <Grid>
-                            <TextBlock Text="MISSION TIMELINE" Foreground="{StaticResource CyanBrush}" FontSize="11" />
+                            <TextBlock Text="MISSION TIMELINE" Foreground="#2DDEFF" FontSize="11" />
                             <Button Content="Clear" HorizontalAlignment="Right" Padding="10,3" Click="ClearLog_Click" />
                         </Grid>
                         <ListBox x:Name="MissionLog" Grid.Row="1" Margin="0,8,0,0" Background="Transparent" BorderThickness="0" Foreground="#A8F4C1" FontFamily="Consolas" FontSize="12" />
@@ -190,68 +190,83 @@
                 </Border>
             </Grid>
 
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="RightPanel" Grid.Column="2" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,12">
+                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock Text="SYSTEM TELEMETRY" Foreground="{StaticResource CyanBrush}" FontSize="11" />
-                            <Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Native execution"/><TextBlock Grid.Column="1" Text="READY" Foreground="#5DFF8C"/></Grid>
-                            <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Skill engine"/><TextBlock x:Name="SkillCountText" Grid.Column="1" Text="0 SKILLS" Foreground="#5DFF8C"/></Grid>
-                            <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Browser companion"/><TextBlock x:Name="BrowserStatusText" Grid.Column="1" Text="CHECKING" Foreground="#FFC757"/></Grid>
-                            <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Gemini Live voice"/><TextBlock x:Name="VoiceStatusText" Grid.Column="1" Text="CHECKING" Foreground="#FFC757"/></Grid>
-                            <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Memory"/><TextBlock Grid.Column="1" Text="LOCAL" Foreground="#5DFF8C"/></Grid>
+                            <TextBlock Text="SYSTEM TELEMETRY" Foreground="#2DDEFF" FontSize="11" />
+                            <Grid Margin="0,9,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Native execution"/><TextBlock Grid.Column="1" Text="READY" Foreground="#5DFF8C"/></Grid>
+                            <Grid Margin="0,7,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Skill engine"/><TextBlock x:Name="SkillCountText" Grid.Column="1" Text="0 SKILLS" Foreground="#5DFF8C"/></Grid>
+                            <Grid Margin="0,7,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Browser companion"/><TextBlock x:Name="BrowserStatusText" Grid.Column="1" Text="CHECKING" Foreground="#FFC757"/></Grid>
+                            <Grid Margin="0,7,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Gemini Live"/><TextBlock x:Name="VoiceStatusText" Grid.Column="1" Text="CHECKING" Foreground="#FFC757"/></Grid>
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,12">
+                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock Text="LIVE INTELLIGENCE" Foreground="{StaticResource CyanBrush}" FontSize="11" />
-                            <Button Content="START LISTENING" Click="StartVoice_Click" Margin="0,10,0,3" BorderBrush="#36CF85" />
+                            <TextBlock Text="LIVE VISUAL CONTEXT" Foreground="#2DDEFF" FontSize="11" />
+                            <Grid Margin="0,9,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="Screen vision" />
+                                <TextBlock x:Name="ScreenVisionStatusText" Grid.Column="1" Text="OFF" Foreground="#FFC757" />
+                            </Grid>
+                            <Border Height="104" Background="#020509" BorderBrush="#254E60" BorderThickness="1" CornerRadius="5">
+                                <Image x:Name="ScreenPreviewImage" Stretch="Uniform" />
+                            </Border>
+                            <Button x:Name="ScreenVisionButton" Content="START SCREEN" Click="ToggleScreenVision_Click" Margin="0,5,0,8" />
+                            <Grid Margin="0,2,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="Camera vision" />
+                                <TextBlock x:Name="CameraVisionStatusText" Grid.Column="1" Text="OFF" Foreground="#FFC757" />
+                            </Grid>
+                            <Border Height="104" Background="#020509" BorderBrush="#254E60" BorderThickness="1" CornerRadius="5">
+                                <Image x:Name="CameraPreviewImage" Stretch="Uniform" />
+                            </Border>
+                            <Button x:Name="CameraVisionButton" Content="START CAMERA" Click="ToggleCameraVision_Click" Margin="0,5,0,0" />
+                            <TextBlock Text="Enabled frames become AI context. Live transmission is limited to one visual frame per second." Foreground="#7FA4B1" TextWrapping="Wrap" FontSize="10" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="LIVE INTELLIGENCE" Foreground="#2DDEFF" FontSize="11" />
+                            <Button Content="START LISTENING" Click="StartVoice_Click" Margin="0,9,0,3" BorderBrush="#36CF85" />
                             <Button Content="STOP VOICE" Click="StopVoice_Click" Margin="0,3" BorderBrush="#B24355" />
                             <Button Content="GEMINI &amp; VOICE SETTINGS" Click="OpenSettings_Click" Margin="0,3" />
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,12">
+                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock Text="QUICK OPERATIONS" Foreground="{StaticResource CyanBrush}" FontSize="11" />
-                            <Button Content="Write and open a Notepad note" Click="NotepadDemo_Click" Margin="0,10,0,3" />
-                            <Button Content="Inspect current WhatsApp chat" Click="WhatsAppInspect_Click" Margin="0,3" />
+                            <TextBlock Text="QUICK OPERATIONS" Foreground="#2DDEFF" FontSize="11" />
+                            <Button Content="Write and open a Notepad note" Click="NotepadDemo_Click" Margin="0,9,0,3" />
+                            <Button Content="Inspect existing WhatsApp chat" Click="WhatsAppInspect_Click" Margin="0,3" />
                             <Button Content="List active browser tabs" Click="BrowserTabs_Click" Margin="0,3" />
                             <Button Content="Who created you?" Click="Identity_Click" Margin="0,3" />
                             <Button Content="Test Browser Companion" Click="BrowserTest_Click" Margin="0,3" />
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <TextBlock Text="ACTIVE SAFETY" Foreground="{StaticResource RedBrush}" FontSize="11" />
-                            <TextBlock Text="Normal navigation, app opening, inspection and typing execute without repeated approval." TextWrapping="Wrap" Margin="0,9,0,0" Foreground="{StaticResource MutedBrush}" />
-                            <TextBlock Text="Sending, publishing, deleting and power actions require one final confirmation." TextWrapping="Wrap" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" />
-                            <TextBlock Text="‘Close Jarvis’ only closes this application." TextWrapping="Wrap" Margin="0,7,0,0" Foreground="#FFC6D0" />
-                        </StackPanel>
-                    </Border>
-
                     <Border Style="{StaticResource PanelBorder}">
                         <StackPanel>
-                            <TextBlock Text="DEVELOPER SIGNATURE" Foreground="{StaticResource CyanBrush}" FontSize="11" />
-                            <TextBlock Text="KB (Khuda Bakhsh)" FontSize="19" FontWeight="SemiBold" Margin="0,9,0,0" />
-                            <TextBlock Text="Native Voice AI Operating Environment" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="DEVELOPER SIGNATURE" Foreground="#2DDEFF" FontSize="11" />
+                            <TextBlock Text="KB (Khuda Bakhsh)" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0" />
+                            <TextBlock Text="Multimodal Native AI Operating Environment" Foreground="#83ABB9" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
-        <Border Grid.Row="2" Background="#E8070B10" BorderBrush="#1F6377" BorderThickness="0,1,0,0" Padding="16,12">
+        <Border Grid.Row="2" Background="#F0060B10" BorderBrush="#1F6377" BorderThickness="0,1,0,0" Padding="14,10">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                    <TextBlock Text="BOSS COMMAND" Foreground="{StaticResource CyanBrush}" FontSize="10" />
-                    <TextBlock Text="Enter to ask or execute" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock Text="BOSS COMMAND" Foreground="#2DDEFF" FontSize="10" />
+                    <TextBlock Text="Enter to ask or execute" Foreground="#83ABB9" FontSize="10" />
                 </StackPanel>
-                <TextBox x:Name="CommandBox" Grid.Column="1" FontSize="17" Padding="14,12" Background="#121A23" Foreground="White" BorderBrush="#2C7790" BorderThickness="1" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" />
-                <Button Grid.Column="2" Content="EXECUTE" Width="124" Margin="12,0,0,0" FontWeight="SemiBold" Click="Execute_Click" />
+                <TextBox x:Name="CommandBox" Grid.Column="1" FontSize="16" Padding="13,11" Background="#121A23" Foreground="White" BorderBrush="#2C7790" BorderThickness="1" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" />
+                <Button Grid.Column="2" Content="EXECUTE" Width="118" Margin="10,0,0,0" FontWeight="SemiBold" Click="Execute_Click" />
             </Grid>
         </Border>
     </Grid>
