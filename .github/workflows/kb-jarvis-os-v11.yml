@@ -1,0 +1,59 @@
+name: Build KB Jarvis OS v11
+
+on:
+  push:
+    branches:
+      - kb-jarvis-os-v11
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-os-v11.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
+
+      - name: Build
+        run: dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore
+
+      - name: Publish self-contained native Windows EXE
+        run: dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v11
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = 'artifacts/KB-Jarvis-OS-v11/KB_Jarvis_OS.exe'
+          if (-not (Test-Path $exe)) { throw "Published executable not found: $exe" }
+          $item = Get-Item $exe
+          if ($item.Length -lt 1000000) { throw "Published executable is unexpectedly small." }
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+          @(
+            'KB Jarvis OS 11.0.0',
+            'Developer: KB (Khuda Bakhsh)',
+            "Built: $(Get-Date -Format o)",
+            "SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+          ) | Set-Content 'artifacts/KB-Jarvis-OS-v11/BUILD_INFO.txt'
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v11-Windows-x64
+          path: artifacts/KB-Jarvis-OS-v11/
+          if-no-files-found: error
+          retention-days: 30
