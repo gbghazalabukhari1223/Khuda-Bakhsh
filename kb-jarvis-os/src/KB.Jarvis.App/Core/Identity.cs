@@ -6,7 +6,7 @@ public static class Identity
     public const string AssistantName = "Jarvis";
     public const string DeveloperShort = "KB";
     public const string DeveloperFull = "KB (Khuda Bakhsh)";
-    public const string Version = "11.1.0";
+    public const string Version = "11.2.0";
     public const string PrimaryUserTitle = "Boss";
 
     public static string CreatorResponse(string languageHint = "roman-urdu") => languageHint.ToLowerInvariant() switch
