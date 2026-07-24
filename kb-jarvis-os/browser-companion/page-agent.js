@@ -1,5 +1,5 @@
 (() => {
-  if (window.__kbJarvisPageAgent?.version === '13.0.0') return;
+  if (window.__kbJarvisPageAgent?.version === '14.0.0') return;
 
   const normalize = (value) => String(value ?? '')
     .toLowerCase()
@@ -172,7 +172,7 @@
   };
 
   window.__kbJarvisPageAgent = {
-    version: '13.0.0',
+    version: '14.0.0',
     inspect,
     focusComposer,
     focusSearch,
