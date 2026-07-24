@@ -216,6 +216,45 @@ public partial class MainWindow
                 arguments["open"] = ReadBoolV12(args, "open").ToString();
                 break;
 
+            case "organize_files":
+                goal = "Organize local files into a verified folder";
+                CopyArgumentV14(args, arguments, "action", "organize");
+                CopyArgumentV14(args, arguments, "source", "Desktop");
+                CopyArgumentV14(args, arguments, "destination");
+                CopyArgumentV14(args, arguments, "folder_name", "Organized Files");
+                CopyArgumentV14(args, arguments, "pattern", "*.*");
+                CopyArgumentV14(args, arguments, "mode", "move");
+                arguments["recursive"] = ReadBoolV12(args, "recursive").ToString();
+                arguments["open"] = ReadBoolV12(args, "open", true).ToString();
+                break;
+
+            case "website_project":
+                goal = "Create or edit a custom website project";
+                CopyArgumentV14(args, arguments, "action", "list_files");
+                CopyArgumentV14(args, arguments, "project", "Boss Website");
+                CopyArgumentV14(args, arguments, "path");
+                CopyArgumentV14(args, arguments, "slug");
+                CopyArgumentV14(args, arguments, "title");
+                CopyArgumentV14(args, arguments, "content");
+                CopyArgumentV14(args, arguments, "search");
+                CopyArgumentV14(args, arguments, "replace");
+                arguments["open"] = ReadBoolV12(args, "open", true).ToString();
+                break;
+
+            case "youtube_play":
+                goal = "Open YouTube and play the requested song or video";
+                arguments["query"] = ReadStringV12(args, "query") ?? throw new InvalidOperationException("YouTube search query was missing.");
+                break;
+
+            case "wordpress_content":
+                goal = "Create or update WordPress content in the existing admin tab";
+                CopyArgumentV14(args, arguments, "action", "create_post");
+                CopyArgumentV14(args, arguments, "title");
+                CopyArgumentV14(args, arguments, "content");
+                CopyArgumentV14(args, arguments, "source", "self");
+                CopyArgumentV14(args, arguments, "status", "draft");
+                break;
+
             case "windows_search":
                 goal = "Use Windows search in the taskbar";
                 arguments["query"] = ReadStringV12(args, "query") ?? throw new InvalidOperationException("Windows search query was missing.");
@@ -282,7 +321,7 @@ public partial class MainWindow
                 throw new InvalidOperationException($"Unsupported desktop input action: {action}");
         }
 
-        await Task.Delay(350, cancellationToken).ConfigureAwait(false);
+        await Task.Delay(280, cancellationToken).ConfigureAwait(false);
         await Dispatcher.InvokeAsync(() => AddLog($"VISUAL INPUT · {action} executed."));
         return $"Native desktop action executed: {action}. Observe the next visual frame before deciding the next action.";
     }
@@ -305,9 +344,17 @@ public partial class MainWindow
             case "CTRL_A": NativeInput.PressShortcut(0x11, 0x41); break;
             case "CTRL_C": NativeInput.PressShortcut(0x11, 0x43); break;
             case "CTRL_V": NativeInput.PressShortcut(0x11, 0x56); break;
+            case "CTRL_S": NativeInput.PressShortcut(0x11, 0x53); break;
             case "ALT_TAB": NativeInput.PressShortcut(0x12, 0x09); break;
             default: throw new InvalidOperationException($"Unsupported key name: {key}");
         }
+    }
+
+    private static void CopyArgumentV14(JsonElement args, IDictionary<string, string> target, string name, string? fallback = null)
+    {
+        var value = ReadStringV12(args, name);
+        if (!string.IsNullOrWhiteSpace(value)) target[name] = value;
+        else if (fallback is not null) target[name] = fallback;
     }
 
     private static string? ReadStringV12(JsonElement args, string name) =>
@@ -315,11 +362,11 @@ public partial class MainWindow
             ? value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString()
             : null;
 
-    private static bool ReadBoolV12(JsonElement args, string name) =>
-        args.ValueKind == JsonValueKind.Object
-        && args.TryGetProperty(name, out var value)
-        && (value.ValueKind == JsonValueKind.True
-            || value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out var parsed) && parsed);
+    private static bool ReadBoolV12(JsonElement args, string name, bool defaultValue = false) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value)
+            ? value.ValueKind == JsonValueKind.True
+              || value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out var parsed) && parsed
+            : defaultValue;
 
     private static int ReadIntV12(JsonElement args, string name, int defaultValue = 0) =>
         args.ValueKind == JsonValueKind.Object
