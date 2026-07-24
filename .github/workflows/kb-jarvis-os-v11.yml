@@ -1,4 +1,4 @@
-name: Build KB Jarvis OS v11
+name: Build KB Jarvis OS v12
 
 on:
   push:
@@ -39,20 +39,22 @@ jobs:
           node --check kb-jarvis-os/browser-companion/page-agent.js
           node --check kb-jarvis-os/browser-companion/popup.js
           $manifest = Get-Content kb-jarvis-os/browser-companion/manifest.json -Raw | ConvertFrom-Json
-          if ($manifest.version -ne '11.2.0') { throw "Unexpected Browser Companion version: $($manifest.version)" }
+          if ([version]$manifest.version -lt [version]'11.2.0') { throw "Unexpected Browser Companion version: $($manifest.version)" }
 
       - name: Restore
         run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
 
-      - name: Build and capture complete diagnostics
+      - name: Build and capture concise diagnostics
         id: build
         continue-on-error: true
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/diagnostics | Out-Null
-          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore 2>&1 | Tee-Object artifacts/diagnostics/build.log
+          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore --nologo '-clp:ErrorsOnly;NoSummary' 2>&1 | Tee-Object artifacts/diagnostics/build.log
           if ($LASTEXITCODE -ne 0) {
             'failed' | Set-Content artifacts/diagnostics/build-status.txt
+            Write-Host '===== COMPILER ERRORS ====='
+            Get-Content artifacts/diagnostics/build.log
             exit 1
           }
           'success' | Set-Content artifacts/diagnostics/build-status.txt
@@ -61,7 +63,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: KB-Jarvis-OS-v11-Compiler-Diagnostics
+          name: KB-Jarvis-OS-v12-Compiler-Diagnostics
           path: artifacts/diagnostics/
           if-no-files-found: error
           retention-days: 30
@@ -69,38 +71,39 @@ jobs:
       - name: Stop after compiler failure
         if: steps.build.outcome != 'success'
         shell: pwsh
-        run: throw 'The native Windows build failed. Download the compiler diagnostics artifact for the complete error log.'
+        run: throw 'The native Windows build failed. Review the concise compiler output above.'
 
       - name: Publish self-contained native Windows EXE
-        run: dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v11
+        run: dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v12
 
       - name: Verify executable
         shell: pwsh
         run: |
-          $exe = 'artifacts/KB-Jarvis-OS-v11/KB_Jarvis_OS.exe'
+          $exe = 'artifacts/KB-Jarvis-OS-v12/KB_Jarvis_OS.exe'
           if (-not (Test-Path $exe)) { throw "Published executable not found: $exe" }
           $item = Get-Item $exe
           if ($item.Length -lt 1000000) { throw "Published executable is unexpectedly small." }
           Get-FileHash $exe -Algorithm SHA256 | Format-List
           @(
-            'KB Jarvis OS 11.2.0',
-            'Browser Companion 11.2.0',
+            'KB Jarvis OS 12.0.0',
+            'Gemini Live voice and function calling',
+            'Browser Companion 11.2 compatible',
             'Developer: KB (Khuda Bakhsh)',
             "Built: $(Get-Date -Format o)",
             "SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
-          ) | Set-Content 'artifacts/KB-Jarvis-OS-v11/BUILD_INFO.txt'
+          ) | Set-Content 'artifacts/KB-Jarvis-OS-v12/BUILD_INFO.txt'
 
       - name: Include Browser Companion and acceptance docs
         shell: pwsh
         run: |
-          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v11/BrowserCompanion
-          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v11/README.md
-          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v11/ACCEPTANCE_TESTS.md
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v12/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v12/README.md
+          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v12/ACCEPTANCE_TESTS.md
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: KB-Jarvis-OS-v11-Windows-x64
-          path: artifacts/KB-Jarvis-OS-v11/
+          name: KB-Jarvis-OS-v12-Windows-x64
+          path: artifacts/KB-Jarvis-OS-v12/
           if-no-files-found: error
           retention-days: 30
