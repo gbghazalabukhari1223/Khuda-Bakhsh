@@ -12,6 +12,9 @@ public static class NativeInput
     private const uint KeyEventKeyUp = 0x0002;
     private const uint MouseEventLeftDown = 0x0002;
     private const uint MouseEventLeftUp = 0x0004;
+    private const uint MouseEventRightDown = 0x0008;
+    private const uint MouseEventRightUp = 0x0010;
+    private const uint MouseEventWheel = 0x0800;
     private const uint MouseEventAbsolute = 0x8000;
     private const uint MouseEventMove = 0x0001;
     private const uint MouseEventVirtualDesk = 0x4000;
@@ -80,7 +83,7 @@ public static class NativeInput
             var handle = process.MainWindowHandle;
             if (handle != nint.Zero)
             {
-                ShowWindowAsync(handle, 9); // SW_RESTORE
+                ShowWindowAsync(handle, 9);
                 if (SetForegroundWindow(handle))
                 {
                     await Task.Delay(250, cancellationToken).ConfigureAwait(false);
@@ -105,11 +108,7 @@ public static class NativeInput
                 Type = InputKeyboard,
                 Union = new InputUnion
                 {
-                    Keyboard = new KeyboardInput
-                    {
-                        ScanCode = character,
-                        Flags = KeyEventUnicode
-                    }
+                    Keyboard = new KeyboardInput { ScanCode = character, Flags = KeyEventUnicode }
                 }
             });
             inputs.Add(new Input
@@ -117,47 +116,80 @@ public static class NativeInput
                 Type = InputKeyboard,
                 Union = new InputUnion
                 {
-                    Keyboard = new KeyboardInput
-                    {
-                        ScanCode = character,
-                        Flags = KeyEventUnicode | KeyEventKeyUp
-                    }
+                    Keyboard = new KeyboardInput { ScanCode = character, Flags = KeyEventUnicode | KeyEventKeyUp }
                 }
             });
         }
-
         Send(inputs);
     }
 
+    public static void PressKey(ushort virtualKey) => PressShortcut(virtualKey);
+
     public static void PressShortcut(params ushort[] virtualKeys)
     {
-        if (virtualKeys.Length == 0)
-        {
-            return;
-        }
-
+        if (virtualKeys.Length == 0) return;
         var inputs = new List<Input>(virtualKeys.Length * 2);
-        foreach (var key in virtualKeys)
-        {
-            inputs.Add(KeyInput(key, keyUp: false));
-        }
-        for (var index = virtualKeys.Length - 1; index >= 0; index--)
-        {
-            inputs.Add(KeyInput(virtualKeys[index], keyUp: true));
-        }
-
+        foreach (var key in virtualKeys) inputs.Add(KeyInput(key, keyUp: false));
+        for (var index = virtualKeys.Length - 1; index >= 0; index--) inputs.Add(KeyInput(virtualKeys[index], keyUp: true));
         Send(inputs);
+    }
+
+    public static void ClickNormalized(int x, int y, string button = "left", int clickCount = 1)
+    {
+        var clampedX = Math.Clamp(x, 0, 1000);
+        var clampedY = Math.Clamp(y, 0, 1000);
+        var left = GetSystemMetrics(76);
+        var top = GetSystemMetrics(77);
+        var width = Math.Max(1, GetSystemMetrics(78));
+        var height = Math.Max(1, GetSystemMetrics(79));
+        var pixelX = left + (int)Math.Round(clampedX / 1000d * Math.Max(0, width - 1));
+        var pixelY = top + (int)Math.Round(clampedY / 1000d * Math.Max(0, height - 1));
+        MovePointer(pixelX, pixelY);
+        var right = string.Equals(button, "right", StringComparison.OrdinalIgnoreCase);
+        for (var index = 0; index < Math.Clamp(clickCount, 1, 3); index++)
+        {
+            Send(new[]
+            {
+                MouseButtonInput(right ? MouseEventRightDown : MouseEventLeftDown),
+                MouseButtonInput(right ? MouseEventRightUp : MouseEventLeftUp)
+            });
+            if (clickCount > 1) Thread.Sleep(90);
+        }
     }
 
     public static void ClickVirtualScreenPoint(int x, int y)
     {
-        var left = GetSystemMetrics(76);  // SM_XVIRTUALSCREEN
-        var top = GetSystemMetrics(77);   // SM_YVIRTUALSCREEN
-        var width = Math.Max(1, GetSystemMetrics(78));
-        var height = Math.Max(1, GetSystemMetrics(79));
-        var normalizedX = (int)Math.Clamp((x - left) * 65535d / Math.Max(1, width - 1), 0, 65535);
-        var normalizedY = (int)Math.Clamp((y - top) * 65535d / Math.Max(1, height - 1), 0, 65535);
+        MovePointer(x, y);
+        Send(new[] { MouseButtonInput(MouseEventLeftDown), MouseButtonInput(MouseEventLeftUp) });
+    }
 
+    public static void Scroll(int amount)
+    {
+        Send(new[]
+        {
+            new Input
+            {
+                Type = InputMouse,
+                Union = new InputUnion
+                {
+                    Mouse = new MouseInput
+                    {
+                        MouseData = unchecked((uint)(amount * 120)),
+                        Flags = MouseEventWheel
+                    }
+                }
+            }
+        });
+    }
+
+    public static (int Left, int Top, int Width, int Height) GetVirtualScreenGeometry() =>
+        (GetSystemMetrics(76), GetSystemMetrics(77), Math.Max(1, GetSystemMetrics(78)), Math.Max(1, GetSystemMetrics(79)));
+
+    private static void MovePointer(int x, int y)
+    {
+        var geometry = GetVirtualScreenGeometry();
+        var normalizedX = (int)Math.Clamp((x - geometry.Left) * 65535d / Math.Max(1, geometry.Width - 1), 0, 65535);
+        var normalizedY = (int)Math.Clamp((y - geometry.Top) * 65535d / Math.Max(1, geometry.Height - 1), 0, 65535);
         Send(new[]
         {
             new Input
@@ -172,22 +204,22 @@ public static class NativeInput
                         Flags = MouseEventMove | MouseEventAbsolute | MouseEventVirtualDesk
                     }
                 }
-            },
-            new Input { Type = InputMouse, Union = new InputUnion { Mouse = new MouseInput { Flags = MouseEventLeftDown } } },
-            new Input { Type = InputMouse, Union = new InputUnion { Mouse = new MouseInput { Flags = MouseEventLeftUp } } }
+            }
         });
     }
+
+    private static Input MouseButtonInput(uint flags) => new()
+    {
+        Type = InputMouse,
+        Union = new InputUnion { Mouse = new MouseInput { Flags = flags } }
+    };
 
     private static Input KeyInput(ushort key, bool keyUp) => new()
     {
         Type = InputKeyboard,
         Union = new InputUnion
         {
-            Keyboard = new KeyboardInput
-            {
-                VirtualKey = key,
-                Flags = keyUp ? KeyEventKeyUp : 0
-            }
+            Keyboard = new KeyboardInput { VirtualKey = key, Flags = keyUp ? KeyEventKeyUp : 0 }
         }
     };
 
