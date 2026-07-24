@@ -12,7 +12,14 @@ public sealed class NotepadWriteSkill : IJarvisSkill
     public bool CanHandle(SkillRequest request)
     {
         var goal = request.Goal.ToLowerInvariant();
-        return goal.Contains("notepad") || goal.Contains("note pad") || goal.Contains("نوٹ پیڈ");
+        var mentionsNotepad = goal.Contains("notepad") || goal.Contains("note pad") || goal.Contains("نوٹ پیڈ");
+        var asksForContent = request.Arguments.ContainsKey("content")
+                             || goal.Contains("write")
+                             || goal.Contains("type")
+                             || goal.Contains("save")
+                             || goal.Contains("likho")
+                             || goal.Contains("لکھ");
+        return mentionsNotepad && asksForContent;
     }
 
     public async Task<SkillResult> ExecuteAsync(SkillRequest request)
