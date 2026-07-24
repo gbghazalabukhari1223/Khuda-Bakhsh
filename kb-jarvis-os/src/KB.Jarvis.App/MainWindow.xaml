@@ -298,7 +298,7 @@
             </ScrollViewer>
         </Grid>
 
-        <Border Grid.Row="2" Background="#FA050A0F" BorderBrush="#24788E" BorderThickness="0,1,0,0" Padding="14,10">
+        <Border Grid.Row="2" BorderBrush="#24788E" BorderThickness="0,1,0,0" Padding="14,10">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                     <GradientStop Color="#FA050A0F" Offset="0" />
