@@ -1,0 +1,63 @@
+{
+  "id": "whatsapp.current_chat.message",
+  "version": 1,
+  "name": "WhatsApp Current Chat Message",
+  "inputs": ["message", "mode"],
+  "consequentialActions": ["send"],
+  "preconditions": [
+    "browser_companion.command_channel_alive",
+    "active_or_existing_tab.matches_whatsapp_web"
+  ],
+  "steps": [
+    {
+      "id": "select-tab",
+      "action": "browser.select_existing_tab",
+      "target": "https://web.whatsapp.com/*",
+      "verify": "tab.url_matches"
+    },
+    {
+      "id": "detect-login",
+      "action": "whatsapp.inspect_state",
+      "verify": "state != qr_login"
+    },
+    {
+      "id": "read-header",
+      "action": "whatsapp.read_current_chat_header",
+      "verify": "header.non_empty"
+    },
+    {
+      "id": "focus-composer",
+      "strategies": [
+        "accessibility.composer",
+        "dom.semantic_composer",
+        "devtools.focus_editable",
+        "vision.bottom_chat_composer",
+        "native.pointer_fallback"
+      ],
+      "verify": "active_element.is_editable && active_element.context == chat_composer"
+    },
+    {
+      "id": "type-message",
+      "action": "devtools.insert_text",
+      "input": "${message}",
+      "verify": "composer.text_equals(${message})"
+    },
+    {
+      "id": "approval",
+      "when": "${mode} == send",
+      "action": "approval.request_once",
+      "scope": "send_current_whatsapp_message"
+    },
+    {
+      "id": "send",
+      "when": "${mode} == send && approval.granted",
+      "strategies": ["devtools.press_enter", "whatsapp.click_verified_send_button"],
+      "verify": "outgoing_message.visible_and_matches(${message})"
+    }
+  ],
+  "failurePolicy": {
+    "repeatSameStrategy": false,
+    "saveSuccessfulStrategy": true,
+    "askUserOnlyAfterAllStrategiesFail": true
+  }
+}
