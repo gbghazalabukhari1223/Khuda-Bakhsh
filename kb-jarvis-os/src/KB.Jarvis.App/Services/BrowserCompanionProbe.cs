@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+using System.Net.Http;
 
 namespace KB.Jarvis.App.Services;
 
@@ -17,15 +17,19 @@ public sealed class BrowserCompanionProbe
         {
             try
             {
-                using var response = await _httpClient.GetAsync($"http://127.0.0.1:{port}/health", cancellationToken)
-                    .ConfigureAwait(false);
+                using var response = await _httpClient.GetAsync(
+                    $"http://127.0.0.1:{port}/health",
+                    cancellationToken).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
                     continue;
                 }
 
                 var raw = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                return new BrowserCompanionHealth(true, port, string.IsNullOrWhiteSpace(raw) ? "Health endpoint responded." : raw);
+                return new BrowserCompanionHealth(
+                    true,
+                    port,
+                    string.IsNullOrWhiteSpace(raw) ? "Health endpoint responded." : raw);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -37,6 +41,9 @@ public sealed class BrowserCompanionProbe
             }
         }
 
-        return new BrowserCompanionHealth(false, null, "No compatible local Browser Companion bridge responded on ports 32145–32155.");
+        return new BrowserCompanionHealth(
+            false,
+            null,
+            "No compatible local Browser Companion bridge responded on ports 32145–32155.");
     }
 }
