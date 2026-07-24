@@ -1,49 +1,40 @@
-# KB Jarvis OS 12
+# KB Jarvis OS 13
 
 **Developer:** KB (Khuda Bakhsh)  
-**Product type:** Native Windows voice and task-execution assistant  
-**Status:** Windows build validation in progress; no release package is published until compilation and executable verification pass
+**Product type:** Native Windows multimodal voice and visual task-execution assistant  
+**Status:** Compiled Windows milestone with verified native build and Version 13 Browser Companion
 
 ## What materially changed
 
-Version 12 is not limited to a decorative dashboard. It adds:
+Version 13 adds:
 
-- Gemini Live WebSocket voice sessions
-- real microphone capture through NAudio
-- streamed 16 kHz PCM input
-- streamed 24 kHz audio playback
-- English, Urdu, Roman Urdu and Hindi conversational instructions
-- input and output transcription in the mission timeline
-- Gemini text-agent fallback for typed commands
-- local function calling and tool-result feedback
+- stronger English, Urdu, Roman Urdu and Hindi intent handling
+- Gemini Live voice with local function calling
+- optional live screen vision on/off
+- optional live camera vision on/off
+- one visual frame per second supplied to Live voice
+- current screen/camera images supplied to typed AI tasks
+- normalized native mouse and keyboard visual actions
+- responsive wide, medium and compact dashboard layouts
+- local file and folder search across standard user locations
+- Windows taskbar/Start search and optional top-result opening
+- existing-session-only WhatsApp operation
+- WhatsApp contact search, candidate ranking and chat-header verification
+- verified WhatsApp draft and one-confirmation send workflow
+- automatic Browser Companion reconnect
 - Windows-DPAPI encryption for the Gemini API key
-- native settings window
-- automatic Live-session reconnect option
-- Windows SAPI spoken fallback for typed replies
-- deterministic local skill execution with result verification
-- Version 12 Browser Companion and matching health handshake
+- permanent creator identity: KB (Khuda Bakhsh)
 
 ## Locked identity
 
 - Assistant: KB Jarvis
 - Creator and developer: KB (Khuda Bakhsh)
 - Primary user title: Boss
-- Identity response: `Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai. Main unka personal AI operating assistant hoon.`
+- Identity response: `Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai. Main unka personal multimodal Windows operating assistant hoon.`
 
-## Current executable skills
+## Important WhatsApp rule
 
-- open supported Windows applications
-- create, verify and open a Notepad note
-- list existing Chrome tabs
-- inspect the currently open WhatsApp Web chat
-- type and verify a WhatsApp draft in the current chat
-- request one confirmation before sending
-- send and verify an outgoing WhatsApp message in the current chat
-- open workspace, logs and training templates
-- converse and plan through Gemini
-- let Gemini call the verified local tools
-
-Version 12 does not claim universal control over every program. Contact search, attachments, visual fallback and broad third-party application control still require dedicated verified skills.
+Jarvis does not create, refresh or navigate to a new WhatsApp Web tab for messaging. It searches for an existing `web.whatsapp.com` tab, focuses that signed-in session, optionally searches for the named contact, verifies the visible chat header, types the exact draft, and verifies the outgoing message after confirmation.
 
 ## Installation
 
@@ -53,54 +44,50 @@ Version 12 does not claim universal control over every program. Contact search, 
 4. Remove or reload the old KB Jarvis Browser Companion.
 5. Enable Developer mode.
 6. Choose **Load unpacked** and select the included `BrowserCompanion` folder.
-7. Confirm Browser Companion version `12.0.0`.
-8. In Jarvis, open **Gemini & Voice Settings**.
-9. Save the Gemini API key and models.
-10. Click **START LISTENING**.
-11. Allow microphone access in Windows when required.
+7. Confirm Browser Companion version `13.0.0`.
+8. Open **Gemini & Voice Settings** in Jarvis and save the API key.
+9. Use **START LISTENING** for voice.
+10. Use **START SCREEN** or **START CAMERA** only when that visual context is needed.
 
-## Initial tests
-
-Typed conversation:
+## Acceptance commands
 
 ```text
-Hello Jarvis. Who created you?
+Who created you?
 ```
-
-Typed tool call:
 
 ```text
-Open Calculator.
+Search my files for "price list" and show the best matches.
 ```
-
-Voice:
 
 ```text
-Jarvis, open Notepad and create a note saying Version 12 voice test is working.
+Use Windows search to find Calculator and open the top result.
 ```
 
-WhatsApp current chat:
+With an existing signed-in WhatsApp tab:
 
 ```text
-In the current WhatsApp chat, draft: "KB Jarvis OS 12 test"
+Find Zain in my existing WhatsApp tab and draft: "KB Jarvis 13 test"
 ```
-
-Send after one confirmation:
 
 ```text
-In the current WhatsApp chat, send: "KB Jarvis OS 12 verified send test"
+Send "Meeting is tomorrow at 12" to Zain on WhatsApp.
 ```
 
-Then say or type:
+Jarvis must request one confirmation before sending.
 
-```text
-Haan, bhej do
-```
+For visual operation:
 
-## Important operational limits
+1. Enable screen vision.
+2. Start voice or enter a typed instruction.
+3. Ask Jarvis to inspect the current screen and perform one normal click/type/scroll action at a time.
+
+## Operational boundaries
 
 - API quota and billing are controlled by the configured Google project.
-- Account login, CAPTCHA and two-factor authentication cannot be bypassed.
-- Windows can block injected input into higher-integrity or secure-desktop windows.
-- A task is reported as completed only when the local skill returns verified success.
+- Login, CAPTCHA and two-factor authentication cannot be bypassed.
+- Windows can block injected input into UAC secure desktop or higher-integrity windows.
+- Camera access remains subject to Windows privacy permissions.
+- Visual actions depend on the accuracy and freshness of the enabled visual frame.
+- Message sending, publishing, deletion, purchases and Windows power actions remain confirmation protected.
+- Jarvis reports completion only after the local tool returns completed or verified status.
 - `Close Jarvis` closes only Jarvis and never shuts down Windows.
