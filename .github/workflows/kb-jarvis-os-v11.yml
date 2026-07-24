@@ -53,8 +53,6 @@ jobs:
           dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore --nologo '-clp:ErrorsOnly;NoSummary' 2>&1 | Tee-Object artifacts/diagnostics/build.log
           if ($LASTEXITCODE -ne 0) {
             'failed' | Set-Content artifacts/diagnostics/build-status.txt
-            Write-Host '===== COMPILER ERRORS ====='
-            Get-Content artifacts/diagnostics/build.log
             exit 1
           }
           'success' | Set-Content artifacts/diagnostics/build-status.txt
@@ -71,7 +69,7 @@ jobs:
       - name: Stop after compiler failure
         if: steps.build.outcome != 'success'
         shell: pwsh
-        run: throw 'The native Windows build failed. Review the concise compiler output above.'
+        run: throw 'The native Windows build failed.'
 
       - name: Publish self-contained native Windows EXE
         run: dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v12
@@ -107,3 +105,19 @@ jobs:
           path: artifacts/KB-Jarvis-OS-v12/
           if-no-files-found: error
           retention-days: 30
+
+  report-build-errors:
+    needs: build-windows
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download compiler diagnostics
+        uses: actions/download-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v12-Compiler-Diagnostics
+          path: diagnostics
+      - name: Print exact compiler errors
+        run: |
+          echo '===== EXACT KB JARVIS V12 COMPILER ERRORS ====='
+          cat diagnostics/build.log
+          echo '===== END COMPILER ERRORS ====='
