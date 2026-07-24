@@ -7,7 +7,7 @@ namespace KB.Jarvis.App.Services;
 
 public sealed class GeminiTextAgentService
 {
-    private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(75) };
+    private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
 
     public async Task<string> SendAsync(
         string prompt,
@@ -20,16 +20,14 @@ public sealed class GeminiTextAgentService
             throw new InvalidOperationException("Gemini API key is not configured. Open Settings and save the key first.");
         }
 
+        var initialParts = new JsonArray(new JsonObject { ["text"] = prompt });
+        AppendParts(initialParts, VisualContextHub.CreateInlineParts("Visual context before the task"));
         var contents = new JsonArray
         {
-            new JsonObject
-            {
-                ["role"] = "user",
-                ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt })
-            }
+            new JsonObject { ["role"] = "user", ["parts"] = initialParts }
         };
 
-        for (var round = 0; round < 5; round++)
+        for (var round = 0; round < 8; round++)
         {
             var response = await GenerateAsync(contents, settings, cancellationToken).ConfigureAwait(false);
             var content = response?["candidates"]?[0]?["content"] as JsonObject
@@ -80,11 +78,8 @@ public sealed class GeminiTextAgentService
                 });
             }
 
-            contents.Add(new JsonObject
-            {
-                ["role"] = "user",
-                ["parts"] = functionParts
-            });
+            AppendParts(functionParts, VisualContextHub.CreateInlineParts("Updated visual context after the local action"));
+            contents.Add(new JsonObject { ["role"] = "user", ["parts"] = functionParts });
         }
 
         throw new InvalidOperationException("Gemini exceeded the maximum local tool-call rounds for one request.");
@@ -110,8 +105,8 @@ public sealed class GeminiTextAgentService
             })!),
             ["generationConfig"] = new JsonObject
             {
-                ["temperature"] = 0.25,
-                ["maxOutputTokens"] = 1400
+                ["temperature"] = 0.2,
+                ["maxOutputTokens"] = 1800
             }
         };
 
@@ -123,6 +118,14 @@ public sealed class GeminiTextAgentService
             throw new InvalidOperationException(ReadApiError(node) ?? $"Gemini request failed with HTTP {(int)response.StatusCode}.");
         }
         return node;
+    }
+
+    private static void AppendParts(JsonArray target, JsonArray source)
+    {
+        foreach (var item in source)
+        {
+            target.Add(item?.DeepClone());
+        }
     }
 
     private static string? ReadApiError(JsonNode? node) =>
