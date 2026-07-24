@@ -27,10 +27,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
 
     public async Task StartAsync(JarvisSettings settings, CancellationToken cancellationToken)
     {
-        if (IsRunning)
-        {
-            return;
-        }
+        if (IsRunning) return;
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
         {
             throw new InvalidOperationException("Gemini API key is missing. Open Jarvis Settings first.");
@@ -49,7 +46,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         StateChanged?.Invoke("CONNECTING");
         await _socket.ConnectAsync(endpoint, token).ConfigureAwait(false);
         await SendSetupAsync(settings, token).ConfigureAwait(false);
-        _receiveTask = Task.Run(() => ReceiveLoopAsync(settings, token), token);
+        _receiveTask = Task.Run(() => ReceiveLoopAsync(token), token);
 
         using var setupTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         setupTimeout.CancelAfter(TimeSpan.FromSeconds(15));
@@ -57,7 +54,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
 
         StartAudioDevices();
         StateChanged?.Invoke("LISTENING");
-        Diagnostic?.Invoke("Gemini Live microphone and speaker streams started.");
+        Diagnostic?.Invoke("Gemini Live microphone, speaker and optional visual streams are ready.");
     }
 
     public async Task StopAsync()
@@ -108,12 +105,36 @@ public sealed class GeminiLiveService : IAsyncDisposable
         StateChanged?.Invoke("OFFLINE");
     }
 
+    public async Task SendVideoFrameAsync(byte[] jpeg, string source, CancellationToken cancellationToken)
+    {
+        if (jpeg.Length == 0 || _socket?.State != WebSocketState.Open) return;
+        try
+        {
+            await SendJsonAsync(new
+            {
+                realtimeInput = new
+                {
+                    video = new
+                    {
+                        mimeType = "image/jpeg",
+                        data = Convert.ToBase64String(jpeg)
+                    }
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            Diagnostic?.Invoke($"{source} visual stream error: {exception.Message}");
+        }
+    }
+
     private async Task SendSetupAsync(JarvisSettings settings, CancellationToken cancellationToken)
     {
         var model = settings.LiveModel.StartsWith("models/", StringComparison.OrdinalIgnoreCase)
             ? settings.LiveModel
             : $"models/{settings.LiveModel}";
-        var setup = new
+        await SendJsonAsync(new
         {
             setup = new
             {
@@ -140,8 +161,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
                 inputAudioTranscription = new { },
                 outputAudioTranscription = new { }
             }
-        };
-        await SendJsonAsync(setup, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     private void StartAudioDevices()
@@ -167,10 +187,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
 
     private void MicrophoneOnDataAvailable(object? sender, WaveInEventArgs eventArgs)
     {
-        if (_socket?.State != WebSocketState.Open || _sessionCts?.IsCancellationRequested != false)
-        {
-            return;
-        }
+        if (_socket?.State != WebSocketState.Open || _sessionCts?.IsCancellationRequested != false) return;
         var copy = new byte[eventArgs.BytesRecorded];
         Buffer.BlockCopy(eventArgs.Buffer, 0, copy, 0, copy.Length);
         _ = SendAudioAsync(copy, _sessionCts.Token);
@@ -199,17 +216,14 @@ public sealed class GeminiLiveService : IAsyncDisposable
         }
     }
 
-    private async Task ReceiveLoopAsync(JarvisSettings settings, CancellationToken cancellationToken)
+    private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
     {
         try
         {
             while (_socket?.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
                 var json = await ReceiveTextMessageAsync(_socket, cancellationToken).ConfigureAwait(false);
-                if (json is null)
-                {
-                    break;
-                }
+                if (json is null) break;
                 using var document = JsonDocument.Parse(json);
                 var root = document.RootElement;
                 if (root.TryGetProperty("setupComplete", out _))
@@ -220,33 +234,9 @@ public sealed class GeminiLiveService : IAsyncDisposable
 
                 if (root.TryGetProperty("serverContent", out var serverContent))
                 {
-                    if (serverContent.TryGetProperty("inputTranscription", out var input)
-                        && input.TryGetProperty("text", out var inputText)
-                        && !string.IsNullOrWhiteSpace(inputText.GetString()))
-                    {
-                        InputTranscript?.Invoke(inputText.GetString()!);
-                    }
-                    if (serverContent.TryGetProperty("outputTranscription", out var output)
-                        && output.TryGetProperty("text", out var outputText)
-                        && !string.IsNullOrWhiteSpace(outputText.GetString()))
-                    {
-                        OutputTranscript?.Invoke(outputText.GetString()!);
-                    }
-                    if (serverContent.TryGetProperty("modelTurn", out var modelTurn)
-                        && modelTurn.TryGetProperty("parts", out var parts))
-                    {
-                        foreach (var part in parts.EnumerateArray())
-                        {
-                            if (part.TryGetProperty("inlineData", out var inlineData)
-                                && inlineData.TryGetProperty("data", out var audioData))
-                            {
-                                var bytes = Convert.FromBase64String(audioData.GetString() ?? string.Empty);
-                                _playbackBuffer?.AddSamples(bytes, 0, bytes.Length);
-                            }
-                        }
-                    }
+                    ReadTranscriptions(serverContent);
+                    ReadAudio(serverContent);
                 }
-
                 if (root.TryGetProperty("toolCall", out var toolCall))
                 {
                     await HandleToolCallsAsync(toolCall, cancellationToken).ConfigureAwait(false);
@@ -269,12 +259,40 @@ public sealed class GeminiLiveService : IAsyncDisposable
         }
     }
 
+    private void ReadTranscriptions(JsonElement serverContent)
+    {
+        if (serverContent.TryGetProperty("inputTranscription", out var input)
+            && input.TryGetProperty("text", out var inputText)
+            && !string.IsNullOrWhiteSpace(inputText.GetString()))
+        {
+            InputTranscript?.Invoke(inputText.GetString()!);
+        }
+        if (serverContent.TryGetProperty("outputTranscription", out var output)
+            && output.TryGetProperty("text", out var outputText)
+            && !string.IsNullOrWhiteSpace(outputText.GetString()))
+        {
+            OutputTranscript?.Invoke(outputText.GetString()!);
+        }
+    }
+
+    private void ReadAudio(JsonElement serverContent)
+    {
+        if (!serverContent.TryGetProperty("modelTurn", out var modelTurn)
+            || !modelTurn.TryGetProperty("parts", out var parts)) return;
+        foreach (var part in parts.EnumerateArray())
+        {
+            if (part.TryGetProperty("inlineData", out var inlineData)
+                && inlineData.TryGetProperty("data", out var audioData))
+            {
+                var bytes = Convert.FromBase64String(audioData.GetString() ?? string.Empty);
+                _playbackBuffer?.AddSamples(bytes, 0, bytes.Length);
+            }
+        }
+    }
+
     private async Task HandleToolCallsAsync(JsonElement toolCall, CancellationToken cancellationToken)
     {
-        if (!toolCall.TryGetProperty("functionCalls", out var calls) || ToolExecutor is null)
-        {
-            return;
-        }
+        if (!toolCall.TryGetProperty("functionCalls", out var calls) || ToolExecutor is null) return;
         var responses = new JsonArray();
         foreach (var call in calls.EnumerateArray())
         {
@@ -305,8 +323,8 @@ public sealed class GeminiLiveService : IAsyncDisposable
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task SendJsonAsync(object message, CancellationToken cancellationToken) =>
-        await SendJsonNodeAsync(JsonSerializer.SerializeToNode(message)!, cancellationToken).ConfigureAwait(false);
+    private Task SendJsonAsync(object message, CancellationToken cancellationToken) =>
+        SendJsonNodeAsync(JsonSerializer.SerializeToNode(message)!, cancellationToken);
 
     private async Task SendJsonNodeAsync(JsonNode message, CancellationToken cancellationToken)
     {
@@ -315,7 +333,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false);
+            await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -329,16 +347,10 @@ public sealed class GeminiLiveService : IAsyncDisposable
         using var stream = new MemoryStream();
         while (true)
         {
-            var result = await socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
-            if (result.MessageType == WebSocketMessageType.Close)
-            {
-                return null;
-            }
+            var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken).ConfigureAwait(false);
+            if (result.MessageType == WebSocketMessageType.Close) return null;
             stream.Write(buffer, 0, result.Count);
-            if (result.EndOfMessage)
-            {
-                return Encoding.UTF8.GetString(stream.ToArray());
-            }
+            if (result.EndOfMessage) return Encoding.UTF8.GetString(stream.ToArray());
         }
     }
 
