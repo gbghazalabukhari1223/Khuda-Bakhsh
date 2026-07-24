@@ -51,7 +51,6 @@
             <RowDefinition Height="96" />
         </Grid.RowDefinitions>
 
-        <!-- Native title bar -->
         <Border Grid.Row="0" Background="#DD070A0F" BorderBrush="#1E5B70" BorderThickness="0,0,0,1"
                 MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid Margin="16,0">
@@ -64,7 +63,7 @@
                         <TextBlock Text="KB" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource CyanBrush}" />
                     </Border>
                     <StackPanel Margin="12,0,0,0">
-                        <TextBlock Text="KB JARVIS OS" FontSize="19" FontWeight="SemiBold" LetterSpacing="1" />
+                        <TextBlock Text="KB JARVIS OS" FontSize="19" FontWeight="SemiBold" />
                         <TextBlock Text="Native Autonomous Operating Assistant · Developer: KB (Khuda Bakhsh)" FontSize="10" Foreground="{StaticResource MutedBrush}" />
                     </StackPanel>
                 </StackPanel>
@@ -83,7 +82,6 @@
                 <ColumnDefinition Width="300" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left control rail -->
             <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="0,0,12,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top">
@@ -111,7 +109,6 @@
                 </DockPanel>
             </Border>
 
-            <!-- Central live core -->
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
@@ -184,7 +181,6 @@
                 </Border>
             </Grid>
 
-            <!-- Right telemetry -->
             <StackPanel Grid.Column="2">
                 <Border Style="{StaticResource PanelBorder}" Margin="0,0,0,12">
                     <StackPanel>
@@ -240,7 +236,6 @@
             </StackPanel>
         </Grid>
 
-        <!-- Command console -->
         <Border Grid.Row="2" Background="#E8070B10" BorderBrush="#1F6377" BorderThickness="0,1,0,0" Padding="16,12">
             <Grid>
                 <Grid.ColumnDefinitions>
