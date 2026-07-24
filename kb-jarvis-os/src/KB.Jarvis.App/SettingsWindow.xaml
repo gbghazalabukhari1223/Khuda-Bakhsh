@@ -54,7 +54,7 @@
                 <CheckBox x:Name="AutoReconnectBox" Content="Automatically reconnect Gemini Live after a temporary disconnect" Margin="0,8" />
                 <CheckBox x:Name="SpeakRepliesBox" Content="Speak text-agent replies using the Windows voice fallback" Margin="0,8" />
                 <Border Background="#111C25" BorderBrush="#275668" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
-                    <TextBlock Text="Recommended defaults: gemini-3.1-flash-live-preview, gemini-3.5-flash, Kore. API quota and billing remain controlled by your Google project." TextWrapping="Wrap" Foreground="#9ABAC5" />
+                    <TextBlock Text="Recommended defaults: gemini-3.1-flash-live-preview, gemini-3.6-flash, Kore. API quota and billing remain controlled by your Google project." TextWrapping="Wrap" Foreground="#9ABAC5" />
                 </Border>
             </StackPanel>
         </ScrollViewer>
