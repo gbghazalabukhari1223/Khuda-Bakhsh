@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using KB.Jarvis.App.Native;
 
 namespace KB.Jarvis.App.Skills;
@@ -28,7 +29,9 @@ public sealed class NotepadWriteSkill : IJarvisSkill
                 $"KB-Jarvis-Note-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
 
         path = Path.GetFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException("The note path has no parent directory."));
+        Directory.CreateDirectory(
+            Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException("The note path has no parent directory."));
 
         await File.WriteAllTextAsync(path, content, request.CancellationToken).ConfigureAwait(false);
         var diskText = await File.ReadAllTextAsync(path, request.CancellationToken).ConfigureAwait(false);
