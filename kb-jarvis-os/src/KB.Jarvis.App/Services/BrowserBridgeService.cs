@@ -60,7 +60,7 @@ public sealed class BrowserBridgeService : IAsyncDisposable
                     status = "ok",
                     name = "KB Jarvis OS Browser Bridge",
                     developer = "KB (Khuda Bakhsh)",
-                    version = "11.0.0",
+                    version = Core.Identity.Version,
                     port = selectedPort,
                     connected = IsConnected
                 }));
