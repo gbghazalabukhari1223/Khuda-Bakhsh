@@ -1,79 +1,106 @@
-# KB Jarvis OS v11
+# KB Jarvis OS 12
 
 **Developer:** KB (Khuda Bakhsh)  
-**Product type:** Native Windows AI operating environment  
-**Status:** Native milestone under active build validation
+**Product type:** Native Windows voice and task-execution assistant  
+**Status:** Compiled Windows milestone with Gemini Live, text planning and verified local tools
 
-## Product goal
+## What materially changed
 
-KB Jarvis OS is a native Windows desktop assistant that understands the Boss's goal, selects a trained local skill, executes the complete workflow, verifies the result, retries through alternate methods when necessary, and asks the Boss only for consequential approval, authentication, or genuinely missing information.
+Version 12 is not limited to a decorative dashboard. It adds:
 
-## Locked product identity
+- Gemini Live WebSocket voice sessions
+- real microphone capture through NAudio
+- streamed 16 kHz PCM input
+- streamed 24 kHz audio playback
+- English, Urdu, Roman Urdu and Hindi conversational instructions
+- input and output transcription in the mission timeline
+- Gemini text-agent fallback for typed commands
+- local function calling and tool-result feedback
+- Windows-DPAPI encryption for the Gemini API key
+- native settings window
+- automatic Live-session reconnect option
+- Windows SAPI spoken fallback for typed replies
+- deterministic local skill execution with result verification
+- Version 12 Browser Companion and matching health handshake
+
+## Locked identity
 
 - Assistant: KB Jarvis
 - Creator and developer: KB (Khuda Bakhsh)
 - Primary user title: Boss
-- Identity response: "Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai. Main unka personal AI operating assistant hoon."
+- Identity response: `Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai. Main unka personal AI operating assistant hoon.`
 
-## Implemented in the current branch
+## Current executable skills
 
-- Native WPF Windows executable rather than an Edge app window
-- Animated black, cyan and red futuristic command centre
-- Native title bar, minimize, maximize and safe close behaviour
-- Local deterministic skill registry
-- Native Windows `SendInput` and foreground-window bridge
-- Notepad write, disk verification and Notepad review skill
-- Embedded localhost WebSocket Browser Companion server
-- Chrome extension with automatic reconnect and no recurring pair code
-- WhatsApp current-chat inspection and chat-header evidence
-- WhatsApp current-chat exact draft verification
-- One-time confirmation queue for message sending
-- Outgoing WhatsApp message verification
-- Permanent KB (Khuda Bakhsh) identity in backend and UI
-- Windows x64 self-contained single-file EXE workflow
+- open supported Windows applications
+- create, verify and open a Notepad note
+- list existing Chrome tabs
+- inspect the currently open WhatsApp Web chat
+- type and verify a WhatsApp draft in the current chat
+- request one confirmation before sending
+- send and verify an outgoing WhatsApp message in the current chat
+- open workspace, logs and training templates
+- converse and plan through Gemini
+- let Gemini call the verified local tools
 
-## Acceptance commands
+Version 12 does not claim universal control over every program. Contact search, attachments, visual fallback and broad third-party application control still require dedicated verified skills.
+
+## Installation
+
+1. Extract the complete package.
+2. Run `KB_Jarvis_OS.exe`.
+3. Open `chrome://extensions/`.
+4. Remove or reload the old KB Jarvis Browser Companion.
+5. Enable Developer mode.
+6. Choose **Load unpacked** and select the included `BrowserCompanion` folder.
+7. Confirm Browser Companion version `12.0.0`.
+8. In Jarvis, open **Gemini & Voice Settings**.
+9. Save the Gemini API key and models.
+10. Click **START LISTENING**.
+11. Allow microphone access in Windows when required.
+
+## Initial tests
+
+Typed conversation:
 
 ```text
-Who created you?
+Hello Jarvis. Who created you?
 ```
+
+Typed tool call:
 
 ```text
-Open Notepad and write: "KB Jarvis OS native Notepad skill is working."
+Open Calculator.
 ```
+
+Voice:
 
 ```text
-In the current WhatsApp chat, draft: "KB Jarvis OS test message"
+Jarvis, open Notepad and create a note saying Version 12 voice test is working.
 ```
+
+WhatsApp current chat:
 
 ```text
-In the current WhatsApp chat, send: "KB Jarvis OS verified send test"
+In the current WhatsApp chat, draft: "KB Jarvis OS 12 test"
 ```
 
-Then confirm once:
+Send after one confirmation:
+
+```text
+In the current WhatsApp chat, send: "KB Jarvis OS 12 verified send test"
+```
+
+Then say or type:
 
 ```text
 Haan, bhej do
 ```
 
-## Browser Companion installation
+## Important operational limits
 
-1. Open `chrome://extensions/`.
-2. Enable Developer mode.
-3. Choose **Load unpacked**.
-4. Select the `kb-jarvis-os/browser-companion` folder.
-5. Start `KB_Jarvis_OS.exe`.
-6. The extension scans local ports 32145–32155 and reconnects automatically.
-
-## Development rule
-
-A click, keystroke or tool call is not success. A task is complete only when the intended result has been verified.
-
-## Next acceptance-critical work
-
-- WhatsApp contact search and candidate disambiguation
-- Attachment upload and verified sending
-- Existing Notepad editor typing mode
-- System-tray and floating-orb worker mode
-- Teach Mode recording and versioned skill memory
-- Native screenshot and visual fallback engine
+- API quota and billing are controlled by the configured Google project.
+- Account login, CAPTCHA and two-factor authentication cannot be bypassed.
+- Windows can block injected input into higher-integrity or secure-desktop windows.
+- A task is reported as completed only when the local skill returns verified success.
+- `Close Jarvis` closes only Jarvis and never shuts down Windows.
