@@ -32,6 +32,15 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Validate Browser Companion JavaScript and manifest
+        shell: pwsh
+        run: |
+          node --check kb-jarvis-os/browser-companion/service-worker.js
+          node --check kb-jarvis-os/browser-companion/page-agent.js
+          node --check kb-jarvis-os/browser-companion/popup.js
+          $manifest = Get-Content kb-jarvis-os/browser-companion/manifest.json -Raw | ConvertFrom-Json
+          if ($manifest.version -ne '11.2.0') { throw "Unexpected Browser Companion version: $($manifest.version)" }
+
       - name: Restore
         run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
 
@@ -74,7 +83,8 @@ jobs:
           if ($item.Length -lt 1000000) { throw "Published executable is unexpectedly small." }
           Get-FileHash $exe -Algorithm SHA256 | Format-List
           @(
-            'KB Jarvis OS 11.0.0',
+            'KB Jarvis OS 11.2.0',
+            'Browser Companion 11.2.0',
             'Developer: KB (Khuda Bakhsh)',
             "Built: $(Get-Date -Format o)",
             "SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
