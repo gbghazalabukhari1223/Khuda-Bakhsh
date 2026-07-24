@@ -21,7 +21,9 @@ public sealed class AppLaunchSkill : IJarvisSkill
             ["google chrome"] = new("Google Chrome", "chrome.exe"),
             ["edge"] = new("Microsoft Edge", "msedge.exe"),
             ["microsoft edge"] = new("Microsoft Edge", "msedge.exe"),
-            ["youtube"] = new("YouTube", "https://www.youtube.com")
+            ["visual studio code"] = new("Visual Studio Code", "code"),
+            ["vs code"] = new("Visual Studio Code", "code"),
+            ["vscode"] = new("Visual Studio Code", "code")
         };
 
     public string Id => "desktop.app.launch";
@@ -30,10 +32,7 @@ public sealed class AppLaunchSkill : IJarvisSkill
     public bool CanHandle(SkillRequest request)
     {
         var goal = request.Goal.ToLowerInvariant();
-        if (goal.Contains("whatsapp"))
-        {
-            return false;
-        }
+        if (goal.Contains("whatsapp") || goal.Contains("youtube")) return false;
 
         var hasLaunchVerb = goal.Contains("open")
                             || goal.Contains("launch")
@@ -73,9 +72,8 @@ public sealed class AppLaunchSkill : IJarvisSkill
             return new SkillResult(Id, SkillStatus.Failed, $"{target.Name} could not be launched.", steps);
         }
 
-        await Task.Delay(450, request.CancellationToken).ConfigureAwait(false);
-        var started = process is not null || target.FileName.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                      || target.FileName.StartsWith("ms-settings:", StringComparison.OrdinalIgnoreCase);
+        await Task.Delay(350, request.CancellationToken).ConfigureAwait(false);
+        var started = process is not null || target.FileName.StartsWith("ms-settings:", StringComparison.OrdinalIgnoreCase);
         steps.Add(new SkillStepResult(
             "Launch application",
             started,
