@@ -15,7 +15,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'status') {
-    sendResponse({ connected: socket?.readyState === WebSocket.OPEN, port: activePort, version: '11.0.0' });
+    sendResponse({ connected: socket?.readyState === WebSocket.OPEN, port: activePort, version: '11.1.0' });
     return true;
   }
   if (message?.type === 'reconnect') {
@@ -74,7 +74,7 @@ function connectToPort(port) {
       candidate.send(JSON.stringify({
         type: 'hello',
         product: 'KB Jarvis OS Browser Companion',
-        version: '11.0.0',
+        version: '11.1.0',
         developer: 'KB (Khuda Bakhsh)'
       }));
       finish(candidate);
