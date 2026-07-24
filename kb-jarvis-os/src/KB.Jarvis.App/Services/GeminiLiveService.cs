@@ -2,20 +2,39 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 using NAudio.Wave;
 
 namespace KB.Jarvis.App.Services;
 
 public sealed class GeminiLiveService : IAsyncDisposable
 {
+    private sealed record VisualPacket(byte[] Jpeg, string Source);
+
     private readonly SemaphoreSlim _sendGate = new(1, 1);
+    private readonly Channel<byte[]> _audioQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(12)
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
+    });
+    private readonly Channel<VisualPacket> _visualQueue = Channel.CreateBounded<VisualPacket>(new BoundedChannelOptions(1)
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
+    });
+
     private ClientWebSocket? _socket;
     private CancellationTokenSource? _sessionCts;
     private WaveInEvent? _microphone;
     private BufferedWaveProvider? _playbackBuffer;
     private WaveOutEvent? _speaker;
     private Task? _receiveTask;
+    private Task? _mediaSendTask;
     private TaskCompletionSource<bool>? _setupCompletion;
+    private long _audioPacketsQueued;
+    private long _visualPacketsQueued;
 
     public event Action<string>? StateChanged;
     public event Action<string>? InputTranscript;
@@ -34,6 +53,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         }
 
         await StopAsync().ConfigureAwait(false);
+        DrainMediaQueues();
         _sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = _sessionCts.Token;
         _setupCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -52,9 +72,10 @@ public sealed class GeminiLiveService : IAsyncDisposable
         setupTimeout.CancelAfter(TimeSpan.FromSeconds(15));
         await _setupCompletion.Task.WaitAsync(setupTimeout.Token).ConfigureAwait(false);
 
+        _mediaSendTask = Task.Run(() => MediaSendLoopAsync(token), token);
         StartAudioDevices();
         StateChanged?.Invoke("LISTENING");
-        Diagnostic?.Invoke("Gemini Live microphone, speaker and optional visual streams are ready.");
+        Diagnostic?.Invoke("Gemini Live started with bounded priority media queues; stale audio and visual frames will not accumulate.");
     }
 
     public async Task StopAsync()
@@ -79,6 +100,12 @@ public sealed class GeminiLiveService : IAsyncDisposable
             _playbackBuffer = null;
         }
 
+        if (_mediaSendTask is not null)
+        {
+            try { await _mediaSendTask.ConfigureAwait(false); } catch { }
+            _mediaSendTask = null;
+        }
+
         var socket = _socket;
         _socket = null;
         if (socket is not null)
@@ -101,32 +128,18 @@ public sealed class GeminiLiveService : IAsyncDisposable
             _receiveTask = null;
         }
 
+        DrainMediaQueues();
         session?.Dispose();
         StateChanged?.Invoke("OFFLINE");
     }
 
-    public async Task SendVideoFrameAsync(byte[] jpeg, string source, CancellationToken cancellationToken)
+    public Task SendVideoFrameAsync(byte[] jpeg, string source, CancellationToken cancellationToken)
     {
-        if (jpeg.Length == 0 || _socket?.State != WebSocketState.Open) return;
-        try
-        {
-            await SendJsonAsync(new
-            {
-                realtimeInput = new
-                {
-                    video = new
-                    {
-                        mimeType = "image/jpeg",
-                        data = Convert.ToBase64String(jpeg)
-                    }
-                }
-            }, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception exception)
-        {
-            Diagnostic?.Invoke($"{source} visual stream error: {exception.Message}");
-        }
+        if (jpeg.Length == 0 || _socket?.State != WebSocketState.Open || cancellationToken.IsCancellationRequested)
+            return Task.CompletedTask;
+        _visualQueue.Writer.TryWrite(new VisualPacket(jpeg, source));
+        Interlocked.Increment(ref _visualPacketsQueued);
+        return Task.CompletedTask;
     }
 
     private async Task SendSetupAsync(JarvisSettings settings, CancellationToken cancellationToken)
@@ -168,18 +181,23 @@ public sealed class GeminiLiveService : IAsyncDisposable
     {
         _playbackBuffer = new BufferedWaveProvider(new WaveFormat(24000, 16, 1))
         {
-            BufferDuration = TimeSpan.FromSeconds(10),
-            DiscardOnBufferOverflow = true
+            BufferDuration = TimeSpan.FromSeconds(5),
+            DiscardOnBufferOverflow = true,
+            ReadFully = true
         };
-        _speaker = new WaveOutEvent { DesiredLatency = 120, NumberOfBuffers = 3 };
+        _speaker = new WaveOutEvent
+        {
+            DesiredLatency = 90,
+            NumberOfBuffers = 4
+        };
         _speaker.Init(_playbackBuffer);
         _speaker.Play();
 
         _microphone = new WaveInEvent
         {
             WaveFormat = new WaveFormat(16000, 16, 1),
-            BufferMilliseconds = 100,
-            NumberOfBuffers = 3
+            BufferMilliseconds = 80,
+            NumberOfBuffers = 4
         };
         _microphone.DataAvailable += MicrophoneOnDataAvailable;
         _microphone.StartRecording();
@@ -190,10 +208,58 @@ public sealed class GeminiLiveService : IAsyncDisposable
         if (_socket?.State != WebSocketState.Open || _sessionCts?.IsCancellationRequested != false) return;
         var copy = new byte[eventArgs.BytesRecorded];
         Buffer.BlockCopy(eventArgs.Buffer, 0, copy, 0, copy.Length);
-        _ = SendAudioAsync(copy, _sessionCts.Token);
+        _audioQueue.Writer.TryWrite(copy);
+        Interlocked.Increment(ref _audioPacketsQueued);
     }
 
-    private async Task SendAudioAsync(byte[] audio, CancellationToken cancellationToken)
+    private async Task MediaSendLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var workDone = false;
+                var audioBurst = 0;
+                while (audioBurst < 5 && _audioQueue.Reader.TryRead(out var audio))
+                {
+                    await SendAudioPacketAsync(audio, cancellationToken).ConfigureAwait(false);
+                    audioBurst++;
+                    workDone = true;
+                }
+
+                if (_visualQueue.Reader.TryRead(out var visual))
+                {
+                    await SendVisualPacketAsync(visual, cancellationToken).ConfigureAwait(false);
+                    workDone = true;
+                }
+
+                if (workDone) continue;
+                var audioWait = _audioQueue.Reader.WaitToReadAsync(cancellationToken).AsTask();
+                var visualWait = _visualQueue.Reader.WaitToReadAsync(cancellationToken).AsTask();
+                await Task.WhenAny(audioWait, visualWait).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            Diagnostic?.Invoke($"Media send loop error: {exception.Message}");
+        }
+    }
+
+    private Task SendAudioPacketAsync(byte[] audio, CancellationToken cancellationToken) =>
+        SendJsonAsync(new
+        {
+            realtimeInput = new
+            {
+                audio = new
+                {
+                    mimeType = "audio/pcm;rate=16000",
+                    data = Convert.ToBase64String(audio)
+                }
+            }
+        }, cancellationToken);
+
+    private async Task SendVisualPacketAsync(VisualPacket packet, CancellationToken cancellationToken)
     {
         try
         {
@@ -201,10 +267,10 @@ public sealed class GeminiLiveService : IAsyncDisposable
             {
                 realtimeInput = new
                 {
-                    audio = new
+                    video = new
                     {
-                        mimeType = "audio/pcm;rate=16000",
-                        data = Convert.ToBase64String(audio)
+                        mimeType = "image/jpeg",
+                        data = Convert.ToBase64String(packet.Jpeg)
                     }
                 }
             }, cancellationToken).ConfigureAwait(false);
@@ -212,7 +278,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         catch (OperationCanceledException) { }
         catch (Exception exception)
         {
-            Diagnostic?.Invoke($"Microphone stream error: {exception.Message}");
+            Diagnostic?.Invoke($"{packet.Source} visual stream error: {exception.Message}");
         }
     }
 
@@ -281,12 +347,17 @@ public sealed class GeminiLiveService : IAsyncDisposable
             || !modelTurn.TryGetProperty("parts", out var parts)) return;
         foreach (var part in parts.EnumerateArray())
         {
-            if (part.TryGetProperty("inlineData", out var inlineData)
-                && inlineData.TryGetProperty("data", out var audioData))
+            if (!part.TryGetProperty("inlineData", out var inlineData)
+                || !inlineData.TryGetProperty("data", out var audioData)) continue;
+            var bytes = Convert.FromBase64String(audioData.GetString() ?? string.Empty);
+            var buffer = _playbackBuffer;
+            if (buffer is null) continue;
+            if (buffer.BufferedDuration > TimeSpan.FromSeconds(4))
             {
-                var bytes = Convert.FromBase64String(audioData.GetString() ?? string.Empty);
-                _playbackBuffer?.AddSamples(bytes, 0, bytes.Length);
+                buffer.ClearBuffer();
+                Diagnostic?.Invoke("Audio playback backlog was cleared to keep Jarvis speech synchronized.");
             }
+            buffer.AddSamples(bytes, 0, bytes.Length);
         }
     }
 
@@ -352,6 +423,14 @@ public sealed class GeminiLiveService : IAsyncDisposable
             stream.Write(buffer, 0, result.Count);
             if (result.EndOfMessage) return Encoding.UTF8.GetString(stream.ToArray());
         }
+    }
+
+    private void DrainMediaQueues()
+    {
+        while (_audioQueue.Reader.TryRead(out _)) { }
+        while (_visualQueue.Reader.TryRead(out _)) { }
+        Interlocked.Exchange(ref _audioPacketsQueued, 0);
+        Interlocked.Exchange(ref _visualPacketsQueued, 0);
     }
 
     public async ValueTask DisposeAsync()
