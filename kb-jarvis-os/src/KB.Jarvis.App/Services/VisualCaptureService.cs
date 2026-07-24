@@ -96,7 +96,7 @@ public sealed class VisualCaptureService : IAsyncDisposable
         capture.Set(VideoCaptureProperties.FrameHeight, 540);
         capture.Set(VideoCaptureProperties.Fps, 15);
         capture.Set(VideoCaptureProperties.BufferSize, 1);
-        capture.Set(VideoCaptureProperties.FourCC, VideoWriter.Fourcc('M', 'J', 'P', 'G'));
+        capture.Set(VideoCaptureProperties.FourCC, VideoWriter.FourCC('M', 'J', 'P', 'G'));
         if (!capture.IsOpened())
         {
             VisualContextHub.CameraEnabled = false;
