@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "KB Jarvis OS Browser Companion",
+  "version": "11.0.0",
+  "description": "Native browser execution bridge for KB Jarvis OS. Developer: KB (Khuda Bakhsh).",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "debugger",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://chatgpt.com/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "KB Jarvis OS Browser Companion",
+    "default_popup": "popup.html"
+  }
+}
