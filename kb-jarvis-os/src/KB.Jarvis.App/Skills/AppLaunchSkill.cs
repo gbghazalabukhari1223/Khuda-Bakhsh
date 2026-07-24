@@ -21,8 +21,7 @@ public sealed class AppLaunchSkill : IJarvisSkill
             ["google chrome"] = new("Google Chrome", "chrome.exe"),
             ["edge"] = new("Microsoft Edge", "msedge.exe"),
             ["microsoft edge"] = new("Microsoft Edge", "msedge.exe"),
-            ["youtube"] = new("YouTube", "https://www.youtube.com"),
-            ["whatsapp"] = new("WhatsApp Web", "https://web.whatsapp.com")
+            ["youtube"] = new("YouTube", "https://www.youtube.com")
         };
 
     public string Id => "desktop.app.launch";
@@ -31,6 +30,11 @@ public sealed class AppLaunchSkill : IJarvisSkill
     public bool CanHandle(SkillRequest request)
     {
         var goal = request.Goal.ToLowerInvariant();
+        if (goal.Contains("whatsapp"))
+        {
+            return false;
+        }
+
         var hasLaunchVerb = goal.Contains("open")
                             || goal.Contains("launch")
                             || goal.Contains("start")
