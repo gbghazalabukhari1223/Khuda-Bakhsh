@@ -90,13 +90,15 @@ public partial class MainWindow : Window
 
             if (IsConfirmationIntent(command))
             {
-                var arguments = new Dictionary<string, string>(_pendingConfirmation.Arguments, StringComparer.OrdinalIgnoreCase)
+                var confirmedArguments = new Dictionary<string, string>(
+                    _pendingConfirmation.Arguments,
+                    StringComparer.OrdinalIgnoreCase)
                 {
                     ["confirmed"] = "true"
                 };
                 var confirmedRequest = new SkillRequest(
                     _pendingConfirmation.Goal,
-                    arguments,
+                    confirmedArguments,
                     _lifetime.Token);
                 _pendingConfirmation = null;
                 await ExecuteSkillRequestAsync(confirmedRequest);
@@ -134,14 +136,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var arguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var commandArguments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var quoted = ExtractQuotedText(command);
         if (!string.IsNullOrWhiteSpace(quoted))
         {
-            arguments["content"] = quoted;
+            commandArguments["content"] = quoted;
         }
 
-        await ExecuteSkillRequestAsync(new SkillRequest(command, arguments, _lifetime.Token));
+        await ExecuteSkillRequestAsync(new SkillRequest(command, commandArguments, _lifetime.Token));
     }
 
     private async Task ExecuteSkillRequestAsync(SkillRequest request)
