@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
+using KB.Jarvis.App.Native;
 using KB.Jarvis.App.Services;
 using KB.Jarvis.App.Skills;
 
@@ -30,7 +31,7 @@ public partial class MainWindow
             ExecuteGeminiToolAsyncV12));
         SkillCountText.Text = $"{_skills.Skills.Count} TRAINED";
         UpdateVoiceStatusV12();
-        AddLog("Gemini Live voice, text planner and local tool-calling engine loaded.");
+        AddLog("Gemini Live voice, multimodal text planner and local tool-calling engine loaded.");
 
         Closing += (_, _) =>
         {
@@ -41,10 +42,7 @@ public partial class MainWindow
 
     private void UpdateVoiceStatusV12(string? state = null)
     {
-        if (VoiceStatusText is null)
-        {
-            return;
-        }
+        if (VoiceStatusText is null) return;
         var settings = _settingsStoreV12.Load();
         var resolved = state ?? (_liveVoiceV12.IsRunning ? "LISTENING" : string.IsNullOrWhiteSpace(settings.ApiKey) ? "NOT CONFIGURED" : "READY");
         VoiceStatusText.Text = resolved;
@@ -65,7 +63,7 @@ public partial class MainWindow
             AddLog($"VOICE STATE · {state}");
             if (state == "LISTENING")
             {
-                SetMissionState("Jarvis is listening", "Speak naturally in English, Urdu, Roman Urdu or Hindi.", "LISTENING", Brushes.LightGreen);
+                SetMissionState("Jarvis is listening", "Speak naturally. Enable screen or camera vision when visual context is required.", "LISTENING", Brushes.LightGreen);
             }
             if (state == "DISCONNECTED" && _voiceRequestedV12)
             {
@@ -74,10 +72,7 @@ public partial class MainWindow
                 {
                     UpdateVoiceStatusV12("RECONNECTING");
                     await Task.Delay(TimeSpan.FromSeconds(3));
-                    if (_voiceRequestedV12 && !_lifetime.IsCancellationRequested)
-                    {
-                        await StartVoiceInternalV12();
-                    }
+                    if (_voiceRequestedV12 && !_lifetime.IsCancellationRequested) await StartVoiceInternalV12();
                 }
             }
         });
@@ -150,7 +145,7 @@ public partial class MainWindow
         _voiceRequestedV12 = false;
         await _liveVoiceV12.StopAsync();
         UpdateVoiceStatusV12("READY");
-        SetMissionState("Voice stopped", "Jarvis remains available through typed commands.", "READY", Brushes.DeepSkyBlue);
+        SetMissionState("Voice stopped", "Jarvis remains available through typed and visual commands.", "READY", Brushes.DeepSkyBlue);
     }
 
     private void OpenSettingsV12()
@@ -161,7 +156,7 @@ public partial class MainWindow
             _settingsStoreV12.Save(dialog.Settings);
             UpdateVoiceStatusV12("READY");
             AddLog("Gemini and voice settings saved securely with Windows DPAPI.");
-            SetMissionState("Settings saved", "Gemini intelligence is configured. Start Live Voice or enter a natural-language task.", "READY", Brushes.LightGreen);
+            SetMissionState("Settings saved", "Gemini intelligence is configured. Start voice, enable vision, or enter a natural-language task.", "READY", Brushes.LightGreen);
         }
     }
 
@@ -180,6 +175,10 @@ public partial class MainWindow
 
             case "open_application":
                 var application = ReadStringV12(args, "application") ?? throw new InvalidOperationException("Application name was missing.");
+                if (application.Contains("whatsapp", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Blocked: WhatsApp messaging must use whatsapp_message and the existing signed-in tab. Jarvis did not open a new WhatsApp page.";
+                }
                 goal = $"Open {application}";
                 break;
 
@@ -195,17 +194,36 @@ public partial class MainWindow
                 goal = "List active browser tabs";
                 break;
 
+            case "whatsapp_message":
             case "whatsapp_current_chat":
                 var action = ReadStringV12(args, "action")?.ToLowerInvariant() ?? "inspect";
                 var message = ReadStringV12(args, "message") ?? string.Empty;
+                var contact = ReadStringV12(args, "contact") ?? string.Empty;
                 goal = action switch
                 {
-                    "draft" => "In the current WhatsApp chat, draft the requested message",
-                    "send" => "In the current WhatsApp chat, send the requested message",
-                    _ => "Inspect the current WhatsApp chat"
+                    "draft" => "Use the existing WhatsApp tab and draft the requested message",
+                    "send" => "Use the existing WhatsApp tab and send the requested message",
+                    _ => "Inspect the existing WhatsApp chat"
                 };
                 if (!string.IsNullOrWhiteSpace(message)) arguments["content"] = message;
+                if (!string.IsNullOrWhiteSpace(contact)) arguments["contact"] = contact;
                 break;
+
+            case "search_files":
+                goal = "Search files and folders on this PC";
+                arguments["query"] = ReadStringV12(args, "query") ?? throw new InvalidOperationException("File search query was missing.");
+                arguments["kind"] = ReadStringV12(args, "kind") ?? "any";
+                arguments["open"] = ReadBoolV12(args, "open").ToString();
+                break;
+
+            case "windows_search":
+                goal = "Use Windows search in the taskbar";
+                arguments["query"] = ReadStringV12(args, "query") ?? throw new InvalidOperationException("Windows search query was missing.");
+                arguments["open"] = ReadBoolV12(args, "open").ToString();
+                break;
+
+            case "desktop_input":
+                return await ExecuteDesktopInputV13Async(args, cancellationToken).ConfigureAwait(false);
 
             default:
                 throw new InvalidOperationException($"Unknown Jarvis tool: {functionName}");
@@ -236,11 +254,79 @@ public partial class MainWindow
             : $"{result.Status}: {result.Summary}";
     }
 
+    private async Task<string> ExecuteDesktopInputV13Async(JsonElement args, CancellationToken cancellationToken)
+    {
+        var action = ReadStringV12(args, "action")?.ToLowerInvariant()
+                     ?? throw new InvalidOperationException("Desktop input action was missing.");
+        switch (action)
+        {
+            case "click":
+            case "double_click":
+            case "right_click":
+                NativeInput.ClickNormalized(
+                    ReadIntV12(args, "x"),
+                    ReadIntV12(args, "y"),
+                    action == "right_click" ? "right" : "left",
+                    action == "double_click" ? 2 : 1);
+                break;
+            case "type":
+                NativeInput.TypeUnicode(ReadStringV12(args, "text") ?? string.Empty);
+                break;
+            case "keypress":
+                PressNamedKeyV13(ReadStringV12(args, "key") ?? string.Empty);
+                break;
+            case "scroll":
+                NativeInput.Scroll(ReadIntV12(args, "amount", -3));
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported desktop input action: {action}");
+        }
+
+        await Task.Delay(350, cancellationToken).ConfigureAwait(false);
+        await Dispatcher.InvokeAsync(() => AddLog($"VISUAL INPUT · {action} executed."));
+        return $"Native desktop action executed: {action}. Observe the next visual frame before deciding the next action.";
+    }
+
+    private static void PressNamedKeyV13(string key)
+    {
+        var normalized = key.Trim().ToUpperInvariant();
+        switch (normalized)
+        {
+            case "ENTER": NativeInput.PressKey(0x0D); break;
+            case "TAB": NativeInput.PressKey(0x09); break;
+            case "ESCAPE": case "ESC": NativeInput.PressKey(0x1B); break;
+            case "BACKSPACE": NativeInput.PressKey(0x08); break;
+            case "DELETE": NativeInput.PressKey(0x2E); break;
+            case "UP": NativeInput.PressKey(0x26); break;
+            case "DOWN": NativeInput.PressKey(0x28); break;
+            case "LEFT": NativeInput.PressKey(0x25); break;
+            case "RIGHT": NativeInput.PressKey(0x27); break;
+            case "WIN": NativeInput.PressKey(0x5B); break;
+            case "CTRL_A": NativeInput.PressShortcut(0x11, 0x41); break;
+            case "CTRL_C": NativeInput.PressShortcut(0x11, 0x43); break;
+            case "CTRL_V": NativeInput.PressShortcut(0x11, 0x56); break;
+            case "ALT_TAB": NativeInput.PressShortcut(0x12, 0x09); break;
+            default: throw new InvalidOperationException($"Unsupported key name: {key}");
+        }
+    }
+
     private static string? ReadStringV12(JsonElement args, string name) =>
-        args.ValueKind == JsonValueKind.Object
-        && args.TryGetProperty(name, out var value)
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value)
             ? value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString()
             : null;
+
+    private static bool ReadBoolV12(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object
+        && args.TryGetProperty(name, out var value)
+        && (value.ValueKind == JsonValueKind.True
+            || value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out var parsed) && parsed);
+
+    private static int ReadIntV12(JsonElement args, string name, int defaultValue = 0) =>
+        args.ValueKind == JsonValueKind.Object
+        && args.TryGetProperty(name, out var value)
+        && (value.TryGetInt32(out var number) || int.TryParse(value.ToString(), out number))
+            ? number
+            : defaultValue;
 
     private async void StartVoice_Click(object sender, RoutedEventArgs e) => await StartVoiceInternalV12();
     private async void StopVoice_Click(object sender, RoutedEventArgs e) => await StopVoiceInternalV12();
