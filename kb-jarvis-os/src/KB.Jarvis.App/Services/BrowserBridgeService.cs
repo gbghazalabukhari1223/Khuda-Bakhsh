@@ -54,20 +54,21 @@ public sealed class BrowserBridgeService : IAsyncDisposable
                     KeepAliveInterval = TimeSpan.FromSeconds(15)
                 });
 
+                var selectedPort = port;
                 application.MapGet("/health", () => Results.Json(new
                 {
                     status = "ok",
                     name = "KB Jarvis OS Browser Bridge",
                     developer = "KB (Khuda Bakhsh)",
                     version = "11.0.0",
-                    port,
+                    port = selectedPort,
                     connected = IsConnected
                 }));
 
                 application.Map("/ws", HandleWebSocketAsync);
                 await application.StartAsync(cancellationToken).ConfigureAwait(false);
                 _application = application;
-                Port = port;
+                Port = selectedPort;
                 return;
             }
             catch (Exception exception)
@@ -76,7 +77,9 @@ public sealed class BrowserBridgeService : IAsyncDisposable
             }
         }
 
-        throw new InvalidOperationException("KB Jarvis could not reserve a local Browser Companion port from 32145 to 32155.", lastError);
+        throw new InvalidOperationException(
+            "KB Jarvis could not reserve a local Browser Companion port from 32145 to 32155.",
+            lastError);
     }
 
     public async Task<BrowserCommandResult> ExecuteAsync(
@@ -94,7 +97,8 @@ public sealed class BrowserBridgeService : IAsyncDisposable
         }
 
         var id = Guid.NewGuid().ToString("N");
-        var completion = new TaskCompletionSource<BrowserCommandResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<BrowserCommandResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         if (!_pending.TryAdd(id, completion))
         {
             throw new InvalidOperationException("Could not create a unique browser command id.");
@@ -114,7 +118,11 @@ public sealed class BrowserBridgeService : IAsyncDisposable
             await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false);
+                await socket.SendAsync(
+                    new ArraySegment<byte>(bytes),
+                    WebSocketMessageType.Text,
+                    true,
+                    cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -123,7 +131,8 @@ public sealed class BrowserBridgeService : IAsyncDisposable
 
             using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutSource.CancelAfter(timeout);
-            await using var registration = timeoutSource.Token.Register(() => completion.TrySetCanceled(timeoutSource.Token));
+            using var registration = timeoutSource.Token.Register(
+                () => completion.TrySetCanceled(timeoutSource.Token));
             return await completion.Task.ConfigureAwait(false);
         }
         finally
@@ -140,7 +149,7 @@ public sealed class BrowserBridgeService : IAsyncDisposable
             return;
         }
 
-        var origin = context.Request.Headers.Origin.ToString();
+        var origin = context.Request.Headers["Origin"].ToString();
         if (!origin.StartsWith("chrome-extension://", StringComparison.OrdinalIgnoreCase)
             && !origin.StartsWith("extension://", StringComparison.OrdinalIgnoreCase))
         {
@@ -160,8 +169,10 @@ public sealed class BrowserBridgeService : IAsyncDisposable
         {
             try
             {
-                await previous.CloseAsync(WebSocketCloseStatus.NormalClosure, "New companion connected", CancellationToken.None)
-                    .ConfigureAwait(false);
+                await previous.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    "New companion connected",
+                    CancellationToken.None).ConfigureAwait(false);
             }
             catch
             {
@@ -188,17 +199,20 @@ public sealed class BrowserBridgeService : IAsyncDisposable
     private async Task ReceiveLoopAsync(WebSocket socket, CancellationToken cancellationToken)
     {
         var buffer = new byte[64 * 1024];
+        var segment = new ArraySegment<byte>(buffer);
+
         while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
             using var stream = new MemoryStream();
             WebSocketReceiveResult result;
             do
             {
-                result = await socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
+                result = await socket.ReceiveAsync(segment, cancellationToken).ConfigureAwait(false);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     return;
                 }
+
                 stream.Write(buffer, 0, result.Count);
             } while (!result.EndOfMessage);
 
@@ -222,9 +236,14 @@ public sealed class BrowserBridgeService : IAsyncDisposable
                 continue;
             }
 
-            var success = root.TryGetProperty("success", out var successElement) && successElement.GetBoolean();
-            JsonElement? data = root.TryGetProperty("data", out var dataElement) ? dataElement.Clone() : null;
-            var error = root.TryGetProperty("error", out var errorElement) ? errorElement.GetString() : null;
+            var success = root.TryGetProperty("success", out var successElement)
+                          && successElement.GetBoolean();
+            JsonElement? data = root.TryGetProperty("data", out var dataElement)
+                ? dataElement.Clone()
+                : null;
+            var error = root.TryGetProperty("error", out var errorElement)
+                ? errorElement.GetString()
+                : null;
             completion.TrySetResult(new BrowserCommandResult(success, data, error));
         }
     }
@@ -242,8 +261,10 @@ public sealed class BrowserBridgeService : IAsyncDisposable
         {
             try
             {
-                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "KB Jarvis is closing", CancellationToken.None)
-                    .ConfigureAwait(false);
+                await socket.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    "KB Jarvis is closing",
+                    CancellationToken.None).ConfigureAwait(false);
             }
             catch
             {
@@ -255,6 +276,7 @@ public sealed class BrowserBridgeService : IAsyncDisposable
         {
             await _application.StopAsync().ConfigureAwait(false);
             await _application.DisposeAsync().ConfigureAwait(false);
+            _application = null;
         }
 
         _sendGate.Dispose();
