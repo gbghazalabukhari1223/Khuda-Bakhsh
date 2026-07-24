@@ -7,13 +7,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>KB_Jarvis_OS</AssemblyName>
     <RootNamespace>KB.Jarvis.App</RootNamespace>
-    <Version>11.2.0</Version>
-    <FileVersion>11.2.0.0</FileVersion>
-    <AssemblyVersion>11.2.0.0</AssemblyVersion>
+    <Version>12.0.0</Version>
+    <FileVersion>12.0.0.0</FileVersion>
+    <AssemblyVersion>12.0.0.0</AssemblyVersion>
     <Authors>KB (Khuda Bakhsh)</Authors>
     <Company>KB</Company>
     <Product>KB Jarvis OS</Product>
-    <Description>Native Windows operating assistant developed by KB (Khuda Bakhsh).</Description>
+    <Description>Native voice-enabled Windows operating assistant developed by KB (Khuda Bakhsh).</Description>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -22,5 +22,7 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 </Project>
