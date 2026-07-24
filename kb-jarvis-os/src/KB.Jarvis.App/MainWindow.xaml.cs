@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using KB.Jarvis.App.Core;
 using KB.Jarvis.App.Services;
 using KB.Jarvis.App.Skills;
@@ -11,17 +12,26 @@ namespace KB.Jarvis.App;
 public partial class MainWindow : Window
 {
     private readonly SkillRegistry _skills = new();
-    private readonly BrowserCompanionProbe _browserProbe = new();
+    private readonly BrowserBridgeService _browserBridge = new();
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly DispatcherTimer _connectionTimer;
+    private SkillRequest? _pendingConfirmation;
 
     public MainWindow()
     {
         InitializeComponent();
         _skills.Register(new NotepadWriteSkill());
+        _skills.Register(new WhatsAppCurrentChatSkill(_browserBridge));
         SkillCountText.Text = $"{_skills.Skills.Count} TRAINED";
         AddLog($"{Identity.ProductName} {Identity.Version} initialized.");
         AddLog($"Developer identity locked: {Identity.DeveloperFull}.");
         AddLog("Native deterministic skill engine ready.");
+
+        _connectionTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _connectionTimer.Tick += (_, _) => RefreshBrowserStatus();
 
         Loaded += async (_, _) =>
         {
@@ -30,14 +40,27 @@ public partial class MainWindow : Window
                 storyboard.Begin(this, true);
             }
 
-            await RefreshBrowserStatusAsync();
+            try
+            {
+                await _browserBridge.StartAsync(_lifetime.Token);
+                AddLog($"Native Browser Companion bridge listening on 127.0.0.1:{_browserBridge.Port}.");
+            }
+            catch (Exception exception)
+            {
+                AddLog($"Browser bridge could not start: {exception.Message}");
+            }
+
+            RefreshBrowserStatus();
+            _connectionTimer.Start();
             CommandBox.Focus();
         };
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _connectionTimer.Stop();
         _lifetime.Cancel();
+        _ = _browserBridge.DisposeAsync();
         _lifetime.Dispose();
         base.OnClosed(e);
     }
@@ -51,11 +74,40 @@ public partial class MainWindow : Window
         }
 
         CommandBox.Clear();
+        AddLog($"Boss: {command}");
+
+        if (_pendingConfirmation is not null)
+        {
+            if (IsCancellationIntent(command))
+            {
+                AddLog("Pending consequential action cancelled by Boss.");
+                _pendingConfirmation = null;
+                MissionTitleText.Text = "Pending action cancelled";
+                MissionDetailText.Text = "No message was sent.";
+                CoreStateText.Text = "READY";
+                return;
+            }
+
+            if (IsConfirmationIntent(command))
+            {
+                var arguments = new Dictionary<string, string>(_pendingConfirmation.Arguments, StringComparer.OrdinalIgnoreCase)
+                {
+                    ["confirmed"] = "true"
+                };
+                var confirmedRequest = new SkillRequest(
+                    _pendingConfirmation.Goal,
+                    arguments,
+                    _lifetime.Token);
+                _pendingConfirmation = null;
+                await ExecuteSkillRequestAsync(confirmedRequest);
+                return;
+            }
+        }
+
         MissionTitleText.Text = command;
         MissionDetailText.Text = "Understanding goal and selecting a trained execution workflow…";
         CoreStateText.Text = "PLANNING";
         CoreStateText.Foreground = System.Windows.Media.Brushes.Gold;
-        AddLog($"Boss: {command}");
 
         if (IsCreatorQuestion(command))
         {
@@ -89,7 +141,11 @@ public partial class MainWindow : Window
             arguments["content"] = quoted;
         }
 
-        var request = new SkillRequest(command, arguments, _lifetime.Token);
+        await ExecuteSkillRequestAsync(new SkillRequest(command, arguments, _lifetime.Token));
+    }
+
+    private async Task ExecuteSkillRequestAsync(SkillRequest request)
+    {
         CoreStateText.Text = "EXECUTING";
         CoreStateText.Foreground = System.Windows.Media.Brushes.DeepSkyBlue;
         MissionDetailText.Text = "Executing locally and verifying every completed step…";
@@ -102,6 +158,17 @@ public partial class MainWindow : Window
             {
                 AddLog($"RECOVERY · {step.RecoveryMethod}");
             }
+        }
+
+        if (result.RequiresConfirmation)
+        {
+            _pendingConfirmation = request;
+            MissionTitleText.Text = "One confirmation required";
+            MissionDetailText.Text = result.ConfirmationPrompt ?? result.Summary;
+            CoreStateText.Text = "AWAITING APPROVAL";
+            CoreStateText.Foreground = System.Windows.Media.Brushes.Gold;
+            AddLog($"CONFIRMATION · {result.ConfirmationPrompt ?? result.Summary}");
+            return;
         }
 
         MissionTitleText.Text = result.Status switch
@@ -158,6 +225,20 @@ public partial class MainWindow : Window
         return namesJarvis && asksClose;
     }
 
+    private static bool IsConfirmationIntent(string command)
+    {
+        var normalized = command.Trim().ToLowerInvariant();
+        return normalized is "yes" or "ok" or "confirm" or "send" or "send it" or "haan" or "han" or "bhej do" or "kr do" or "kar do"
+               || normalized.Contains("yes send")
+               || normalized.Contains("haan bhej");
+    }
+
+    private static bool IsCancellationIntent(string command)
+    {
+        var normalized = command.Trim().ToLowerInvariant();
+        return normalized is "cancel" or "no" or "nahi" or "mat bhejo" or "don't send";
+    }
+
     private static string? ExtractQuotedText(string command)
     {
         var match = Regex.Match(command, """["“”'](?<text>.+?)["“”']""", RegexOptions.Singleline);
@@ -172,18 +253,14 @@ public partial class MainWindow : Window
             : null;
     }
 
-    private async Task RefreshBrowserStatusAsync()
+    private void RefreshBrowserStatus()
     {
-        BrowserStatusText.Text = "CHECKING";
-        BrowserStatusText.Foreground = System.Windows.Media.Brushes.Gold;
-        var health = await _browserProbe.CheckAsync(_lifetime.Token);
-        BrowserStatusText.Text = health.Connected ? $"ONLINE :{health.Port}" : "OFFLINE";
-        BrowserStatusText.Foreground = health.Connected
+        BrowserStatusText.Text = _browserBridge.IsConnected
+            ? $"CONNECTED :{_browserBridge.Port}"
+            : $"WAITING :{_browserBridge.Port}";
+        BrowserStatusText.Foreground = _browserBridge.IsConnected
             ? System.Windows.Media.Brushes.LightGreen
-            : System.Windows.Media.Brushes.OrangeRed;
-        AddLog(health.Connected
-            ? $"Browser Companion bridge detected on port {health.Port}."
-            : health.Detail);
+            : System.Windows.Media.Brushes.Gold;
     }
 
     private void AddLog(string text)
@@ -219,7 +296,13 @@ public partial class MainWindow : Window
         _ = ExecuteCommandAsync();
     }
 
-    private async void BrowserTest_Click(object sender, RoutedEventArgs e) => await RefreshBrowserStatusAsync();
+    private void BrowserTest_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshBrowserStatus();
+        AddLog(_browserBridge.IsConnected
+            ? "Browser Companion command channel is connected and ready."
+            : "Browser Companion is not connected yet. Reload the Version 11 extension; it will reconnect automatically.");
+    }
 
     private void ClearLog_Click(object sender, RoutedEventArgs e) => MissionLog.Items.Clear();
 
