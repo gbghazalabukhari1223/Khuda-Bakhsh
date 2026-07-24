@@ -1,4 +1,4 @@
-const VERSION = '11.2.0';
+const VERSION = '12.0.0';
 const PORTS = Array.from({ length: 11 }, (_, index) => 32145 + index);
 const RECONNECT_DELAY_MS = 2200;
 const HEALTH_TIMEOUT_MS = 550;
