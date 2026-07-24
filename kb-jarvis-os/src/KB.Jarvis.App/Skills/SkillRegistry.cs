@@ -20,15 +20,17 @@ public sealed class SkillRegistry
         JarvisLog.Info($"Registered skill: {skill.Id} ({skill.DisplayName})");
     }
 
-    public async Task<SkillResult> ExecuteAsync(SkillRequest request)
+    public async Task<SkillResult> ExecuteAsync(SkillRequest request, string? excludedSkillId = null)
     {
-        var skill = _skills.FirstOrDefault(candidate => candidate.CanHandle(request));
+        var skill = _skills.FirstOrDefault(candidate =>
+            !string.Equals(candidate.Id, excludedSkillId, StringComparison.OrdinalIgnoreCase)
+            && candidate.CanHandle(request));
         if (skill is null)
         {
             return new SkillResult(
                 "unmatched-goal",
                 SkillStatus.Blocked,
-                "No trained deterministic skill matched this goal yet.",
+                "No verified local skill matched this goal.",
                 Array.Empty<SkillStepResult>());
         }
 
