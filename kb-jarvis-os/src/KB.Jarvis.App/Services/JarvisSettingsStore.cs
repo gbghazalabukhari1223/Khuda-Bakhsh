@@ -15,7 +15,7 @@ public sealed record JarvisSettings(
     public static JarvisSettings Default { get; } = new(
         ApiKey: string.Empty,
         LiveModel: "gemini-3.1-flash-live-preview",
-        TextModel: "gemini-3.5-flash",
+        TextModel: "gemini-3.6-flash",
         VoiceName: "Kore",
         AutoReconnect: true,
         SpeakTextReplies: true);
