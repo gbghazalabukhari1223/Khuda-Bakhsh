@@ -27,12 +27,19 @@ public sealed class FileOrganizerSkill : IJarvisSkill
     {
         var action = Get(request, "action", "organize").ToLowerInvariant();
         var sourceValue = Get(request, "source", InferSource(request.Goal));
-        var roots = ResolveSourceRoots(sourceValue).Distinct(StringComparer.OrdinalIgnoreCase).Where(Directory.Exists).ToArray();
-        var destination = ResolveDestination(request, roots.FirstOrDefault() ?? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+        var roots = ResolveSourceRoots(sourceValue)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(Directory.Exists)
+            .ToArray();
+        var destination = ResolveDestination(
+            request,
+            roots.FirstOrDefault() ?? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
         var pattern = NormalizePattern(Get(request, "pattern", InferPattern(request.Goal)));
         var recursive = GetBool(request, "recursive", false);
         var confirmed = GetBool(request, "confirmed", false);
-        var mode = Get(request, "mode", "move").ToLowerInvariant() == "copy" ? "copy" : "move";
+        var mode = Get(request, "mode", "move").Equals("copy", StringComparison.OrdinalIgnoreCase)
+            ? "copy"
+            : "move";
 
         if (action is "create_folder" or "mkdir")
         {
@@ -41,13 +48,19 @@ public sealed class FileOrganizerSkill : IJarvisSkill
             return new SkillResult(
                 Id,
                 verified ? SkillStatus.Completed : SkillStatus.Failed,
-                verified ? $"Folder created and verified: {destination}" : $"Folder creation could not be verified: {destination}",
+                verified
+                    ? $"Folder created and verified: {destination}"
+                    : $"Folder creation could not be verified: {destination}",
                 new[] { new SkillStepResult("Create folder", verified, destination) });
         }
 
         if (roots.Length == 0)
         {
-            return new SkillResult(Id, SkillStatus.Blocked, $"No accessible source folder was resolved from: {sourceValue}", Array.Empty<SkillStepResult>());
+            return new SkillResult(
+                Id,
+                SkillStatus.Blocked,
+                $"No accessible source folder was resolved from: {sourceValue}",
+                Array.Empty<SkillStepResult>());
         }
 
         var files = await Task.Run(
@@ -60,17 +73,32 @@ public sealed class FileOrganizerSkill : IJarvisSkill
                 Id,
                 SkillStatus.Completed,
                 $"No files matching “{pattern}” were found in the selected user locations.",
-                new[] { new SkillStepResult("Scan source folders", true, $"Scanned {roots.Length} accessible location(s); no changes were made.") });
+                new[]
+                {
+                    new SkillStepResult(
+                        "Scan source folders",
+                        true,
+                        $"Scanned {roots.Length} accessible location(s); no changes were made.")
+                });
         }
 
         if (!confirmed)
         {
-            var preview = string.Join(Environment.NewLine, files.Take(12).Select(path => $"• {Path.GetFileName(path)} — {Path.GetDirectoryName(path)}"));
+            var preview = string.Join(
+                Environment.NewLine,
+                files.Take(12).Select(path => $"• {Path.GetFileName(path)} — {Path.GetDirectoryName(path)}"));
             return new SkillResult(
                 Id,
                 SkillStatus.Prepared,
-                $"Ready to {mode} {files.Count} matching file(s) from {roots.Length} location(s) into:{Environment.NewLine}{destination}{Environment.NewLine}{Environment.NewLine}{preview}",
-                new[] { new SkillStepResult("Build organization plan", true, $"Matched {files.Count} file(s) using {pattern}.") },
+                $"Ready to {mode} {files.Count} matching file(s) from {roots.Length} location(s) into:"
+                + $"{Environment.NewLine}{destination}{Environment.NewLine}{Environment.NewLine}{preview}",
+                new[]
+                {
+                    new SkillStepResult(
+                        "Build organization plan",
+                        true,
+                        $"Matched {files.Count} file(s) using {pattern}.")
+                },
                 RequiresConfirmation: true,
                 ConfirmationPrompt: $"Create “{destination}” and {mode} {files.Count} matching file(s) into it?");
         }
@@ -104,8 +132,10 @@ public sealed class FileOrganizerSkill : IJarvisSkill
 
         var pastTense = mode == "copy" ? "copied" : "moved";
         var summary = failures.Count == 0
-            ? $"Created the folder and {pastTense} {completed.Count} file(s), verified at:{Environment.NewLine}{destination}"
-            : $"{pastTense} {completed.Count} file(s) to {destination}; {failures.Count} item(s) could not be processed.";
+            ? $"Created the folder and {pastTense} {completed.Count} file(s), verified at:"
+              + $"{Environment.NewLine}{destination}"
+            : $"{pastTense} {completed.Count} file(s) to {destination}; "
+              + $"{failures.Count} item(s) could not be processed.";
         return new SkillResult(
             Id,
             success ? SkillStatus.Completed : completed.Count > 0 ? SkillStatus.Prepared : SkillStatus.Failed,
@@ -114,7 +144,10 @@ public sealed class FileOrganizerSkill : IJarvisSkill
             {
                 new SkillStepResult("Create destination folder", Directory.Exists(destination), destination),
                 new SkillStepResult($"{mode} matching files", completed.Count > 0, $"Verified {completed.Count} destination file(s)."),
-                new SkillStepResult("Check failures", failures.Count == 0, failures.Count == 0 ? "No failures." : string.Join(" | ", failures.Take(5)))
+                new SkillStepResult(
+                    "Check failures",
+                    failures.Count == 0,
+                    failures.Count == 0 ? "No failures." : string.Join(" | ", failures.Take(5)))
             });
     }
 
@@ -126,7 +159,8 @@ public sealed class FileOrganizerSkill : IJarvisSkill
         CancellationToken token)
     {
         var option = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var destinationFull = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var destinationFull = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar)
+                              + Path.DirectorySeparatorChar;
         var results = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var root in roots)
@@ -174,13 +208,15 @@ public sealed class FileOrganizerSkill : IJarvisSkill
             yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
             yield break;
         }
+
         yield return ResolvePath(source);
     }
 
     private static bool IsPcAlias(string value)
     {
         var normalized = value.Trim().ToLowerInvariant();
-        return normalized is "pc" or "computer" or "my pc" or "standard" or "user folders" or "meray pc" or "mere pc";
+        return normalized is "pc" or "computer" or "my pc" or "standard" or "user folders"
+            or "meray pc" or "mere pc";
     }
 
     private static string ResolvePath(string path)
@@ -219,11 +255,19 @@ public sealed class FileOrganizerSkill : IJarvisSkill
 
     private static string? InferFolderName(string goal)
     {
-        var match = Regex.Match(
-            goal,
-            @"folder\s+(?:named|name|ka naam|naam)?\s*[\"'“”]?([^\"'“”]+?)[\"'“”]?(?:\s+(?:mein|men|main|me|and|aur|move|organize|banao|bana|create)|$)",
-            RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value.Trim() : null;
+        var quoted = Regex.Match(goal, "folder\\s+(?:named|name)?\\s*[\\\"'“”]([^\\\"'“”]+)[\\\"'“”]", RegexOptions.IgnoreCase);
+        if (quoted.Success) return quoted.Groups[1].Value.Trim();
+
+        var marker = Regex.Match(goal, "folder\\s+(?:named|name|ka naam|naam)\\s+([a-zA-Z0-9 _-]{2,60})", RegexOptions.IgnoreCase);
+        if (!marker.Success) return null;
+        var value = marker.Groups[1].Value;
+        var stopWords = new[] { " mein ", " men ", " main ", " me ", " and ", " aur ", " move ", " organize ", " banao ", " bana ", " create " };
+        var cut = stopWords
+            .Select(word => value.IndexOf(word, StringComparison.OrdinalIgnoreCase))
+            .Where(index => index >= 0)
+            .DefaultIfEmpty(value.Length)
+            .Min();
+        return value[..cut].Trim();
     }
 
     private static string NormalizePattern(string pattern)
@@ -231,7 +275,8 @@ public sealed class FileOrganizerSkill : IJarvisSkill
         pattern = pattern.Trim();
         if (string.IsNullOrWhiteSpace(pattern)) return "*.*";
         if (pattern.StartsWith('.')) return $"*{pattern}";
-        if (!pattern.Contains('*') && !pattern.Contains('?') && Regex.IsMatch(pattern, "^[a-zA-Z0-9]+$")) return $"*.{pattern}";
+        if (!pattern.Contains('*') && !pattern.Contains('?') && Regex.IsMatch(pattern, "^[a-zA-Z0-9]+$"))
+            return $"*.{pattern}";
         return pattern;
     }
 
