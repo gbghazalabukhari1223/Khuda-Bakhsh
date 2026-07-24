@@ -2,7 +2,7 @@
 
 **Developer:** KB (Khuda Bakhsh)  
 **Product type:** Native Windows voice and task-execution assistant  
-**Status:** Compiled Windows milestone with Gemini Live, text planning and verified local tools
+**Status:** Windows build validation in progress; no release package is published until compilation and executable verification pass
 
 ## What materially changed
 
