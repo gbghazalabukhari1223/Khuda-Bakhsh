@@ -134,7 +134,13 @@ public sealed class VisualCaptureService : IAsyncDisposable
         using var full = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format24bppRgb);
         using (var graphics = Graphics.FromImage(full))
         {
-            graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, new Size(bounds.Width, bounds.Height), CopyPixelOperation.SourceCopy);
+            graphics.CopyFromScreen(
+                bounds.Left,
+                bounds.Top,
+                0,
+                0,
+                new System.Drawing.Size(bounds.Width, bounds.Height),
+                CopyPixelOperation.SourceCopy);
         }
 
         const int maximumWidth = 1280;
