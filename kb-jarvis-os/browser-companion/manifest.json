@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "KB Jarvis OS Browser Companion",
-  "version": "13.0.0",
-  "description": "Existing-session browser execution bridge for KB Jarvis OS 13. Developer: KB (Khuda Bakhsh).",
+  "version": "14.0.0",
+  "description": "Existing-session browser, YouTube and WordPress execution bridge for KB Jarvis OS 14. Developer: KB (Khuda Bakhsh).",
   "permissions": [
     "tabs",
     "scripting",
@@ -13,6 +13,8 @@
   "host_permissions": [
     "https://web.whatsapp.com/*",
     "https://chatgpt.com/*",
+    "https://www.youtube.com/*",
+    "*://*/wp-admin/*",
     "http://127.0.0.1/*"
   ],
   "background": {
@@ -20,7 +22,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "KB Jarvis OS 13 Browser Companion",
+    "default_title": "KB Jarvis OS 14 Browser Companion",
     "default_popup": "popup.html"
   }
 }
