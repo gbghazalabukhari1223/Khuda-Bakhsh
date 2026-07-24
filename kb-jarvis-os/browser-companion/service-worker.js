@@ -8,12 +8,9 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create('kb-jarvis-heartbeat', { periodInMinutes: 0.5 });
   connectLoop();
 });
-
 chrome.runtime.onStartup.addListener(connectLoop);
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'kb-jarvis-heartbeat' && (!socket || socket.readyState !== WebSocket.OPEN)) {
-    connectLoop();
-  }
+  if (alarm.name === 'kb-jarvis-heartbeat' && socket?.readyState !== WebSocket.OPEN) connectLoop();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -30,16 +27,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function connectLoop(force = false) {
-  if (connecting) return;
-  if (!force && socket?.readyState === WebSocket.OPEN) return;
+  if (connecting || (!force && socket?.readyState === WebSocket.OPEN)) return;
   connecting = true;
-
   try {
     if (socket) {
       try { socket.close(); } catch { /* no-op */ }
       socket = null;
     }
-
     for (const port of PORTS) {
       const candidate = await connectToPort(port);
       if (candidate) {
@@ -52,7 +46,6 @@ async function connectLoop(force = false) {
   } finally {
     connecting = false;
   }
-
   setTimeout(connectLoop, RECONNECT_DELAY_MS);
 }
 
@@ -60,8 +53,7 @@ function connectToPort(port) {
   return new Promise((resolve) => {
     let settled = false;
     const candidate = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const timeout = setTimeout(() => finish(null), 650);
-
+    const timeout = setTimeout(() => finish(null), 700);
     const finish = (value) => {
       if (settled) return;
       settled = true;
@@ -78,7 +70,7 @@ function connectToPort(port) {
           setTimeout(connectLoop, RECONNECT_DELAY_MS);
         }
       };
-      candidate.onerror = () => { /* onclose handles retry */ };
+      candidate.onerror = () => { /* close event performs recovery */ };
       candidate.send(JSON.stringify({
         type: 'hello',
         product: 'KB Jarvis OS Browser Companion',
@@ -87,7 +79,6 @@ function connectToPort(port) {
       }));
       finish(candidate);
     };
-
     candidate.onerror = () => finish(null);
     candidate.onclose = () => finish(null);
   });
@@ -95,14 +86,8 @@ function connectToPort(port) {
 
 async function handleCommandMessage(raw, channel) {
   let command;
-  try {
-    command = JSON.parse(raw);
-  } catch {
-    return;
-  }
-
+  try { command = JSON.parse(raw); } catch { return; }
   if (command?.type !== 'command' || !command.id || !command.operation) return;
-
   try {
     const data = await executeOperation(command.operation, command.payload ?? {});
     sendResult(channel, command.id, true, data, null);
@@ -112,22 +97,18 @@ async function handleCommandMessage(raw, channel) {
 }
 
 function sendResult(channel, id, success, data, error) {
-  if (channel.readyState !== WebSocket.OPEN) return;
-  channel.send(JSON.stringify({ type: 'result', id, success, data, error }));
+  if (channel.readyState === WebSocket.OPEN) {
+    channel.send(JSON.stringify({ type: 'result', id, success, data, error }));
+  }
 }
 
 async function executeOperation(operation, payload) {
   switch (operation) {
-    case 'tabs.list':
-      return await listTabs();
-    case 'whatsapp.current_chat.inspect':
-      return await inspectCurrentWhatsAppChat();
-    case 'whatsapp.current_chat.draft':
-      return await draftInCurrentWhatsAppChat(String(payload.message ?? ''));
-    case 'whatsapp.current_chat.send':
-      return await sendInCurrentWhatsAppChat(String(payload.message ?? ''));
-    default:
-      throw new Error(`Unsupported Browser Companion operation: ${operation}`);
+    case 'tabs.list': return await listTabs();
+    case 'whatsapp.current_chat.inspect': return await inspectCurrentWhatsAppChat();
+    case 'whatsapp.current_chat.draft': return await draftInCurrentWhatsAppChat(String(payload.message ?? ''));
+    case 'whatsapp.current_chat.send': return await sendInCurrentWhatsAppChat(String(payload.message ?? ''));
+    default: throw new Error(`Unsupported Browser Companion operation: ${operation}`);
   }
 }
 
@@ -139,29 +120,47 @@ async function listTabs() {
 async function findWhatsAppTab() {
   const tabs = await chrome.tabs.query({ url: ['https://web.whatsapp.com/*'] });
   if (!tabs.length) throw new Error('No existing WhatsApp Web tab was found. Open WhatsApp Web and sign in once.');
-  const active = tabs.find((tab) => tab.active) ?? tabs[0];
-  await chrome.tabs.update(active.id, { active: true });
-  await chrome.windows.update(active.windowId, { focused: true });
-  return active;
+  const selected = tabs.find((tab) => tab.active) ?? tabs[0];
+  await chrome.tabs.update(selected.id, { active: true });
+  await chrome.windows.update(selected.windowId, { focused: true });
+  await ensurePageAgent(selected.id);
+  return selected;
+}
+
+async function ensurePageAgent(tabId) {
+  await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', files: ['page-agent.js'] });
+}
+
+async function callPageAgent(tabId, method, args = []) {
+  const [result] = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    args: [method, args],
+    func: (methodName, methodArgs) => {
+      const agent = window.__kbJarvisPageAgent;
+      if (!agent || typeof agent[methodName] !== 'function') {
+        return { ok: false, error: 'KB Jarvis page agent is not available.' };
+      }
+      return agent[methodName](...methodArgs);
+    }
+  });
+  return result?.result ?? { ok: false, error: 'The page agent returned no result.' };
 }
 
 async function inspectCurrentWhatsAppChat() {
   const tab = await findWhatsAppTab();
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    world: 'MAIN',
-    func: inspectWhatsAppPage
-  });
-  if (!result?.result?.ok) throw new Error(result?.result?.error ?? 'WhatsApp current-chat inspection failed.');
-  return { tabId: tab.id, ...result.result };
+  const state = await callPageAgent(tab.id, 'inspect');
+  if (!state.ok) throw new Error(state.error ?? 'WhatsApp current-chat inspection failed.');
+  return { tabId: tab.id, ...state };
 }
 
 async function draftInCurrentWhatsAppChat(message) {
   if (!message.trim()) throw new Error('The WhatsApp draft message is empty.');
   const tab = await findWhatsAppTab();
-  const state = await focusWhatsAppComposer(tab.id);
+  const state = await callPageAgent(tab.id, 'focusComposer');
+  if (!state.ok) throw new Error(state.error ?? 'WhatsApp composer focus failed.');
   await debuggerType(tab.id, message, false);
-  const verified = await verifyComposerText(tab.id, message);
+  const verified = await callPageAgent(tab.id, 'composerText', [message]);
   if (!verified.ok) throw new Error(`Draft verification failed. Composer contained: ${verified.actual ?? '<empty>'}`);
   return { tabId: tab.id, chatHeader: state.chatHeader, draftVerified: true, message };
 }
@@ -169,56 +168,16 @@ async function draftInCurrentWhatsAppChat(message) {
 async function sendInCurrentWhatsAppChat(message) {
   if (!message.trim()) throw new Error('The WhatsApp message is empty.');
   const tab = await findWhatsAppTab();
-  const state = await focusWhatsAppComposer(tab.id);
+  const state = await callPageAgent(tab.id, 'focusComposer');
+  if (!state.ok) throw new Error(state.error ?? 'WhatsApp composer focus failed.');
   await debuggerType(tab.id, message, true);
-  const sent = await verifyOutgoingMessage(tab.id, message);
-  if (!sent.ok) throw new Error('The Enter key was sent, but the outgoing message could not be verified in the current chat.');
-  return { tabId: tab.id, chatHeader: state.chatHeader, sentVerified: true, message };
-}
-
-async function focusWhatsAppComposer(tabId) {
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId },
-    world: 'MAIN',
-    func: focusCurrentComposer
-  });
-  if (!result?.result?.ok) throw new Error(result?.result?.error ?? 'WhatsApp message composer was not found.');
-  return result.result;
-}
-
-async function verifyComposerText(tabId, expected) {
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId },
-    world: 'MAIN',
-    args: [expected],
-    func: (text) => {
-      const composer = findVisibleComposer();
-      if (!composer) return { ok: false, actual: null };
-      const actual = (composer.innerText || composer.textContent || '').replace(/\u00a0/g, ' ').trim();
-      return { ok: actual === text.trim(), actual };
-    }
-  });
-  return result?.result ?? { ok: false, actual: null };
-}
-
-async function verifyOutgoingMessage(tabId, expected) {
   const deadline = Date.now() + 6500;
   while (Date.now() < deadline) {
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      args: [expected],
-      func: (text) => {
-        const outgoing = [...document.querySelectorAll('[data-testid="msg-container"], .message-out')]
-          .filter((node) => isVisible(node));
-        const normalized = text.trim();
-        return { ok: outgoing.some((node) => (node.innerText || '').includes(normalized)) };
-      }
-    });
-    if (result?.result?.ok) return { ok: true };
+    const sent = await callPageAgent(tab.id, 'outgoingContains', [message]);
+    if (sent.ok) return { tabId: tab.id, chatHeader: state.chatHeader, sentVerified: true, message };
     await delay(350);
   }
-  return { ok: false };
+  throw new Error('Enter was dispatched, but the outgoing WhatsApp message could not be verified.');
 }
 
 async function debuggerType(tabId, text, pressEnter) {
@@ -227,27 +186,15 @@ async function debuggerType(tabId, text, pressEnter) {
   try {
     await chrome.debugger.attach(target, '1.3');
     attached = true;
-    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-      type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 2
-    });
-    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-      type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 2
-    });
-    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-      type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8
-    });
-    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-      type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8
-    });
+    await dispatchKey(target, 'keyDown', 'a', 'KeyA', 65, 2);
+    await dispatchKey(target, 'keyUp', 'a', 'KeyA', 65, 2);
+    await dispatchKey(target, 'keyDown', 'Backspace', 'Backspace', 8, 0);
+    await dispatchKey(target, 'keyUp', 'Backspace', 'Backspace', 8, 0);
     await chrome.debugger.sendCommand(target, 'Input.insertText', { text });
     if (pressEnter) {
-      await delay(120);
-      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-        type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13
-      });
-      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-        type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13
-      });
+      await delay(150);
+      await dispatchKey(target, 'keyDown', 'Enter', 'Enter', 13, 0);
+      await dispatchKey(target, 'keyUp', 'Enter', 'Enter', 13, 0);
     }
   } finally {
     if (attached) {
@@ -256,62 +203,10 @@ async function debuggerType(tabId, text, pressEnter) {
   }
 }
 
-function inspectWhatsAppPage() {
-  const qr = document.querySelector('canvas[aria-label*="QR" i], [data-ref] canvas');
-  if (qr && isVisible(qr)) return { ok: false, error: 'WhatsApp Web login QR is visible.' };
-  const composer = findVisibleComposer();
-  const chatHeader = readChatHeader();
-  if (!composer) return { ok: false, error: 'No visible current-chat message composer was found.' };
-  return { ok: true, chatHeader, composerFound: true };
-}
-
-function focusCurrentComposer() {
-  const qr = document.querySelector('canvas[aria-label*="QR" i], [data-ref] canvas');
-  if (qr && isVisible(qr)) return { ok: false, error: 'WhatsApp Web login QR is visible.' };
-  const composer = findVisibleComposer();
-  if (!composer) return { ok: false, error: 'No visible message composer was found in the current WhatsApp chat.' };
-  composer.scrollIntoView({ block: 'center', inline: 'nearest' });
-  composer.click();
-  composer.focus();
-  const active = document.activeElement;
-  const focused = active === composer || composer.contains(active);
-  return { ok: focused, chatHeader: readChatHeader(), tag: composer.tagName, role: composer.getAttribute('role') };
-}
-
-function findVisibleComposer() {
-  const selectors = [
-    'footer [contenteditable="true"][role="textbox"]',
-    'footer div[contenteditable="true"]',
-    '[data-testid="conversation-compose-box-input"]',
-    'div[contenteditable="true"][aria-placeholder*="message" i]',
-    'div[contenteditable="true"][aria-label*="message" i]'
-  ];
-  const candidates = selectors.flatMap((selector) => [...document.querySelectorAll(selector)]);
-  const unique = [...new Set(candidates)].filter(isVisible);
-  return unique
-    .filter((node) => node.getBoundingClientRect().top > window.innerHeight * 0.55)
-    .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0] ?? null;
-}
-
-function readChatHeader() {
-  const selectors = [
-    'header span[title]',
-    'header [data-testid="conversation-info-header-chat-title"]',
-    'header [dir="auto"]'
-  ];
-  for (const selector of selectors) {
-    const node = [...document.querySelectorAll(selector)].find(isVisible);
-    const text = node?.getAttribute('title') || node?.innerText || node?.textContent;
-    if (text?.trim()) return text.trim();
-  }
-  return null;
-}
-
-function isVisible(node) {
-  if (!(node instanceof Element)) return false;
-  const rect = node.getBoundingClientRect();
-  const style = getComputedStyle(node);
-  return rect.width > 2 && rect.height > 2 && style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || 1) > 0;
+function dispatchKey(target, type, key, code, windowsVirtualKeyCode, modifiers) {
+  return chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
+    type, key, code, windowsVirtualKeyCode, modifiers
+  });
 }
 
 function delay(milliseconds) {
