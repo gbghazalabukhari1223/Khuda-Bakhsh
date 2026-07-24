@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.Windows.Forms;
+using KB.Jarvis.App.Native;
 using OpenCvSharp;
 
 namespace KB.Jarvis.App.Services;
@@ -21,11 +21,7 @@ public sealed class VisualCaptureService : IAsyncDisposable
 
     public Task StartScreenAsync(CancellationToken lifetimeToken)
     {
-        if (ScreenRunning)
-        {
-            return Task.CompletedTask;
-        }
-
+        if (ScreenRunning) return Task.CompletedTask;
         _screenCts = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
         VisualContextHub.ScreenEnabled = true;
         _screenTask = Task.Run(() => ScreenLoopAsync(_screenCts.Token), _screenCts.Token);
@@ -50,11 +46,7 @@ public sealed class VisualCaptureService : IAsyncDisposable
 
     public Task StartCameraAsync(CancellationToken lifetimeToken)
     {
-        if (CameraRunning)
-        {
-            return Task.CompletedTask;
-        }
-
+        if (CameraRunning) return Task.CompletedTask;
         _cameraCts = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
         VisualContextHub.CameraEnabled = true;
         _cameraTask = Task.Run(() => CameraLoopAsync(_cameraCts.Token), _cameraCts.Token);
@@ -91,7 +83,6 @@ public sealed class VisualCaptureService : IAsyncDisposable
             {
                 Diagnostic?.Invoke($"Screen capture failed: {exception.Message}");
             }
-
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
         }
     }
@@ -128,14 +119,13 @@ public sealed class VisualCaptureService : IAsyncDisposable
             {
                 Diagnostic?.Invoke($"Camera capture failed: {exception.Message}");
             }
-
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
         }
     }
 
     private static byte[] CaptureScreenJpeg()
     {
-        var bounds = SystemInformation.VirtualScreen;
+        var bounds = NativeInput.GetVirtualScreenGeometry();
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
             throw new InvalidOperationException("Windows returned invalid virtual-screen dimensions.");
@@ -144,7 +134,7 @@ public sealed class VisualCaptureService : IAsyncDisposable
         using var full = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format24bppRgb);
         using (var graphics = Graphics.FromImage(full))
         {
-            graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
+            graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, new Size(bounds.Width, bounds.Height), CopyPixelOperation.SourceCopy);
         }
 
         const int maximumWidth = 1280;
