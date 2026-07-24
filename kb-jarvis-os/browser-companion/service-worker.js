@@ -1,59 +1,127 @@
+const VERSION = '11.2.0';
 const PORTS = Array.from({ length: 11 }, (_, index) => 32145 + index);
-const RECONNECT_DELAY_MS = 1800;
+const RECONNECT_DELAY_MS = 2200;
+const HEALTH_TIMEOUT_MS = 550;
+const SOCKET_TIMEOUT_MS = 1600;
+
 let socket = null;
 let activePort = null;
 let connecting = false;
+let connectionState = 'offline';
+let connectionDetail = 'Start KB Jarvis OS. The companion will reconnect automatically.';
+let reconnectTimer = null;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create('kb-jarvis-heartbeat', { periodInMinutes: 0.5 });
   connectLoop();
 });
+
 chrome.runtime.onStartup.addListener(connectLoop);
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'kb-jarvis-heartbeat' && socket?.readyState !== WebSocket.OPEN) connectLoop();
+  if (alarm.name === 'kb-jarvis-heartbeat' && socket?.readyState !== WebSocket.OPEN) {
+    connectLoop();
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'status') {
-    sendResponse({ connected: socket?.readyState === WebSocket.OPEN, port: activePort, version: '11.1.0' });
+    sendResponse({
+      connected: socket?.readyState === WebSocket.OPEN,
+      port: activePort,
+      version: VERSION,
+      state: connectionState,
+      detail: connectionDetail
+    });
     return true;
   }
+
   if (message?.type === 'reconnect') {
     connectLoop(true);
     sendResponse({ accepted: true });
     return true;
   }
+
   return false;
 });
 
 async function connectLoop(force = false) {
   if (connecting || (!force && socket?.readyState === WebSocket.OPEN)) return;
   connecting = true;
+  clearReconnectTimer();
+  connectionState = 'probing';
+  connectionDetail = 'Locating the running KB Jarvis native bridge…';
+
   try {
-    if (socket) {
-      try { socket.close(); } catch { /* no-op */ }
-      socket = null;
-    }
-    for (const port of PORTS) {
+    closeCurrentSocket();
+
+    const stored = await chrome.storage.local.get(['activePort']);
+    const rememberedPort = Number(stored?.activePort);
+    const orderedPorts = Number.isInteger(rememberedPort) && PORTS.includes(rememberedPort)
+      ? [rememberedPort, ...PORTS.filter((port) => port !== rememberedPort)]
+      : PORTS;
+
+    for (const port of orderedPorts) {
+      const health = await probeHealth(port);
+      if (!health?.healthy) continue;
+
       const candidate = await connectToPort(port);
-      if (candidate) {
-        socket = candidate;
-        activePort = port;
-        await chrome.storage.local.set({ activePort: port, lastConnectedAt: Date.now() });
-        return;
-      }
+      if (!candidate) continue;
+
+      socket = candidate;
+      activePort = port;
+      connectionState = 'connected';
+      connectionDetail = `Connected to KB Jarvis OS on port ${port}.`;
+      await chrome.storage.local.set({
+        activePort: port,
+        lastConnectedAt: Date.now(),
+        lastNativeVersion: health.version ?? null
+      });
+      return;
     }
+
+    activePort = null;
+    connectionState = 'offline';
+    connectionDetail = 'KB Jarvis OS is not running or its native bridge has not started yet.';
+  } catch (error) {
+    activePort = null;
+    connectionState = 'offline';
+    connectionDetail = error instanceof Error ? error.message : String(error);
   } finally {
     connecting = false;
   }
-  setTimeout(connectLoop, RECONNECT_DELAY_MS);
+
+  scheduleReconnect();
+}
+
+async function probeHealth(port) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    if (!response.ok) return { healthy: false };
+
+    const data = await response.json().catch(() => ({}));
+    const recognized = String(data?.name ?? '').toLowerCase().includes('kb jarvis');
+    return {
+      healthy: recognized && String(data?.status ?? '').toLowerCase() === 'ok',
+      version: data?.version ?? null
+    };
+  } catch {
+    return { healthy: false };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function connectToPort(port) {
   return new Promise((resolve) => {
     let settled = false;
-    const candidate = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const timeout = setTimeout(() => finish(null), 700);
+    let candidate;
+
     const finish = (value) => {
       if (settled) return;
       settled = true;
@@ -61,27 +129,64 @@ function connectToPort(port) {
       resolve(value);
     };
 
+    const timeout = setTimeout(() => {
+      try { candidate?.close(); } catch { /* no-op */ }
+      finish(null);
+    }, SOCKET_TIMEOUT_MS);
+
+    try {
+      candidate = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    } catch {
+      finish(null);
+      return;
+    }
+
     candidate.onopen = () => {
       candidate.onmessage = (event) => handleCommandMessage(event.data, candidate);
-      candidate.onclose = () => {
-        if (socket === candidate) {
-          socket = null;
-          activePort = null;
-          setTimeout(connectLoop, RECONNECT_DELAY_MS);
-        }
-      };
-      candidate.onerror = () => { /* close event performs recovery */ };
+      candidate.onclose = () => handleSocketClosed(candidate);
+      candidate.onerror = () => { /* onclose performs recovery */ };
       candidate.send(JSON.stringify({
         type: 'hello',
         product: 'KB Jarvis OS Browser Companion',
-        version: '11.1.0',
+        version: VERSION,
         developer: 'KB (Khuda Bakhsh)'
       }));
       finish(candidate);
     };
+
     candidate.onerror = () => finish(null);
     candidate.onclose = () => finish(null);
   });
+}
+
+function handleSocketClosed(candidate) {
+  if (socket !== candidate) return;
+  socket = null;
+  activePort = null;
+  connectionState = 'offline';
+  connectionDetail = 'The native bridge disconnected. Reconnecting automatically…';
+  scheduleReconnect();
+}
+
+function closeCurrentSocket() {
+  const current = socket;
+  socket = null;
+  activePort = null;
+  if (current) {
+    try { current.close(); } catch { /* no-op */ }
+  }
+}
+
+function scheduleReconnect() {
+  clearReconnectTimer();
+  reconnectTimer = setTimeout(() => connectLoop(), RECONNECT_DELAY_MS);
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
 }
 
 async function handleCommandMessage(raw, channel) {
