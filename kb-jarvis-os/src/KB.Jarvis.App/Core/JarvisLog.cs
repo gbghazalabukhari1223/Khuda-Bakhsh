@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 
 namespace KB.Jarvis.App.Core;
@@ -10,7 +11,9 @@ public static class JarvisLog
         "KB Jarvis OS",
         "Logs");
 
-    public static string CurrentLogPath { get; } = Path.Combine(LogDirectory, $"jarvis-{DateTime.Now:yyyy-MM-dd}.log");
+    public static string CurrentLogPath { get; } = Path.Combine(
+        LogDirectory,
+        $"jarvis-{DateTime.Now:yyyy-MM-dd}.log");
 
     public static void Info(string message) => Write("INFO", message, null);
     public static void Warning(string message) => Write("WARN", message, null);
