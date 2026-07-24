@@ -1,5 +1,5 @@
 (() => {
-  if (window.__kbJarvisPageAgent?.version === '11.1.0') return;
+  if (window.__kbJarvisPageAgent?.version === '11.2.0') return;
 
   const isVisible = (node) => {
     if (!(node instanceof Element)) return false;
@@ -91,7 +91,7 @@
   };
 
   window.__kbJarvisPageAgent = {
-    version: '11.1.0',
+    version: '11.2.0',
     inspect,
     focusComposer,
     composerText,
