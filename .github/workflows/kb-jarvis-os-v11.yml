@@ -7,6 +7,12 @@ on:
     paths:
       - 'kb-jarvis-os/**'
       - '.github/workflows/kb-jarvis-os-v11.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-os-v11.yml'
   workflow_dispatch:
 
 permissions:
