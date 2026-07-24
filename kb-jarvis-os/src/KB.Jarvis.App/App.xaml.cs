@@ -29,7 +29,7 @@ public partial class App : Application
         base.OnStartup(e);
         var window = new MainWindow();
         MainWindow = window;
-        window.InitializeV12();
+        window.InitializeV13();
         window.Show();
     }
 }
