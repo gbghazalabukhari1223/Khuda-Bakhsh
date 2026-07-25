@@ -1,0 +1,86 @@
+name: Launch-test KB Jarvis OS v15
+
+on:
+  push:
+    branches:
+      - kb-jarvis-os-v15-female-multitask
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-os-v15-launch-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launch-smoke-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish clean Windows x64 executable
+        shell: pwsh
+        run: |
+          dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
+          dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/KB-Jarvis-OS-v15
+
+      - name: Launch smoke test
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe'
+          $before = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-2)} -ErrorAction SilentlyContinue
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-3)} -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|BadImageFormat|\.NET Runtime|Application Error' } |
+              Select-Object -First 10 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "KB Jarvis exited during startup smoke test with code $($process.ExitCode)."
+          }
+          Write-Host "KB Jarvis remained alive for 8 seconds. Startup smoke test passed. PID=$($process.Id)"
+          Stop-Process -Id $process.Id -Force
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+
+      - name: Include Browser Companion and docs
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v15/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v15/README.md
+          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v15/ACCEPTANCE_TESTS.md
+          $worker = 'artifacts/KB-Jarvis-OS-v15/BrowserCompanion/service-worker.js'
+          $agent = 'artifacts/KB-Jarvis-OS-v15/BrowserCompanion/page-agent.js'
+          (Get-Content $worker -Raw).Replace("const VERSION = '14.0.0';", "const VERSION = '15.0.0';") | Set-Content $worker -NoNewline
+          (Get-Content $agent -Raw).Replace("'14.0.0'", "'15.0.0'") | Set-Content $agent -NoNewline
+          @(
+            'KB Jarvis OS 15 clean source build',
+            'Startup smoke test: PASSED',
+            'No post-build binary patching',
+            "Built: $(Get-Date -Format o)",
+            "SHA256: $((Get-FileHash 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe' -Algorithm SHA256).Hash)"
+          ) | Set-Content 'artifacts/KB-Jarvis-OS-v15/STARTUP_TEST.txt'
+
+      - name: Upload launch-tested Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v15-LAUNCH-TESTED-Windows-x64
+          path: artifacts/KB-Jarvis-OS-v15/
+          if-no-files-found: error
+          retention-days: 30
