@@ -1,116 +1,118 @@
-# KB Jarvis OS 14
+# KB Jarvis OS 15 — Female Executive
 
 **Developer:** KB (Khuda Bakhsh)  
-**Product type:** Native Windows multimodal work, browser, file and website assistant  
-**Release standard:** A package is released only after JavaScript validation, .NET compilation, self-contained publication and executable verification succeed.
+**Product type:** Native Windows multimodal voice, desktop, browser, file and website work assistant  
+**Release standard:** JavaScript validation, .NET compilation, self-contained Windows publication and executable verification must pass before release.
 
-## Version 14 priorities
+## Identity and persona
 
-Version 14 focuses on reliable real work rather than decorative automation:
+Jarvis 15 is configured as a professional female executive assistant: mature, calm, direct and multilingual. She addresses the primary user as **Boss** and understands English, Urdu, Roman Urdu and Hindi. She does not use childish or romantic pet names.
 
-- bounded, priority-based Gemini Live audio streaming
-- stale microphone and visual packets are dropped instead of accumulating
-- low-latency screen and camera previews
-- verified folder creation
-- safe multi-location file organization
-- move or copy with collision-safe filenames
-- custom HTML, CSS, JavaScript and PHP Website Studio
-- timestamped website-file backups before edits
-- page creation, exact file writing, search-and-replace and basic validation
-- verified YouTube search and playback workflow
-- existing-session WordPress page and post workflow
-- optional content transfer from the latest readable ChatGPT response
-- existing-session-only WhatsApp messaging
-- responsive high-speed command-centre interface
-- permanent creator identity: KB (Khuda Bakhsh)
+Creator response:
 
-## Why voice could glitch in Version 13
+```text
+Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai.
+Main unki professional female multimodal Windows, browser aur website work assistant hoon.
+```
 
-Version 13 could start a separate network send operation for each microphone callback while visual frames and tool responses used the same Live WebSocket. On slower computers or unstable networks, pending sends could accumulate and produce delayed, broken or robotic speech.
+Default Gemini Live voice: `Laomedeia`. Other selectable voices include Kore, Aoede, Leda, Achernar, Vindemiatrix and Sulafat.
 
-Version 14 routes microphone packets and visual frames through bounded queues:
+## Fluent voice architecture
 
-- microphone audio receives priority;
-- only a short recent audio window is retained;
-- only the latest visual frame is retained;
-- excessive playback backlog is cleared;
-- screen and camera preview updates are independent of Live transmission.
+Version 15 uses:
 
-Hardware, microphone drivers, Bluetooth audio, CPU load and internet quality can still affect voice quality, but the application no longer creates an unlimited media-send backlog.
+- 40 ms 16 kHz microphone packets;
+- bounded drop-oldest microphone buffering;
+- audio priority over visual frames;
+- speaker-active microphone suppression to reduce echo and self-interruption;
+- 24 kHz streamed playback;
+- short playback buffering and stale-speech clearing;
+- latest-frame-only screen/camera transmission;
+- Gemini Live context-window compression;
+- Gemini Live session resumption after temporary reconnects.
 
-## File Organizer
+The design is intended to prevent the unlimited audio backlog and echo feedback that caused robotic, delayed or interrupted speech in earlier versions. Bluetooth drivers, microphone enhancements, CPU load, network quality and API service conditions can still affect audio quality.
 
-Jarvis can create a destination folder and organize matching files from:
+## Verified multi-task missions
 
-- Desktop
-- Documents
-- Downloads
-- the combined safe `PC` scope, meaning the three user locations above
-- another explicit accessible folder path
-
-System folders, Windows directories and protected locations are not included in the automatic PC scope.
+For several tasks in one instruction, Jarvis creates an ordered mission queue of up to 12 standalone tasks. She completes and verifies one task before starting the next so browser tabs, foreground windows and keyboard focus remain controlled.
 
 Example:
 
 ```text
-Jarvis, meray PC par Notepad wali sab .txt files ko Desktop par
+Open Calculator, then play Afreen Afreen on YouTube,
+then create a Desktop folder named Website Work,
+and finally list my active browser tabs.
+```
+
+The queue stops safely when:
+
+- a required step fails and continuation was not authorized;
+- a send, publish, file-move or other consequential action needs confirmation;
+- authentication or a protected Windows surface blocks execution.
+
+## Existing trained capabilities
+
+### Windows and desktop
+
+- open verified common applications;
+- Windows Start/taskbar search;
+- native mouse click, double-click, right-click, typing, shortcuts and scrolling;
+- live screen and camera context;
+- Notepad note creation and disk verification;
+- local file and folder search.
+
+### Files
+
+- create folders;
+- scan Desktop, Documents and Downloads as the safe `PC` scope;
+- move or copy matching files after one confirmation;
+- collision-safe filenames;
+- destination-file verification;
+- open the completed folder.
+
+Example:
+
+```text
+Meray PC par Notepad wali sab .txt files ko Desktop par
 "Organized Notepad Files" folder mein move kar do.
 ```
 
-Expected workflow:
+### Browser and communication
 
-1. Scan the selected user locations.
-2. Show the number and preview of matching files.
-3. Request one confirmation before moving or copying.
-4. Create the destination folder.
-5. Use collision-safe names such as `notes (2).txt` when needed.
-6. Verify each destination file.
-7. Open the completed folder.
+- reconnecting Chrome Browser Companion;
+- existing-tab listing;
+- existing-session-only WhatsApp contact search, draft and verified send;
+- YouTube search, result selection and playback-state verification;
+- read the latest accessible ChatGPT assistant response;
+- WordPress draft/page/post workflow in an existing signed-in wp-admin tab.
 
-Folder-only command:
+### Website Studio
 
-```text
-Create a folder named Website Work on my Desktop.
-```
-
-## YouTube playback
-
-Example:
-
-```text
-Open YouTube and play Afreen Afreen Coke Studio.
-```
-
-Jarvis searches YouTube, opens a normal video result, attempts playback and checks the HTML video playback state. Browser autoplay policy, ads, age restrictions or account prompts can still block immediate playback; Jarvis must report that state honestly.
-
-## Website Studio
-
-By default, named projects are created inside:
+Projects are normally created inside:
 
 ```text
 Documents\KB Jarvis Websites\<Project Name>
 ```
 
-Supported operations:
+Supported work:
 
-- create a responsive HTML/CSS/JavaScript project
-- create additional HTML pages
-- create or update `.html`, `.css`, `.js`, `.php`, `.json` and other text files
-- exact search-and-replace
-- list project files
-- open the project folder
-- basic HTML structure validation
-- basic HTML/CSS/JavaScript/PHP file counts
-- timestamped backup before every existing-file change
+- create responsive HTML/CSS/JavaScript projects;
+- create additional pages;
+- write or update HTML, CSS, JavaScript, PHP, JSON and other text files;
+- exact search-and-replace;
+- timestamped backup before modifying an existing file;
+- project file listing and basic validation;
+- open the project for review.
 
 Examples:
 
 ```text
-Create a custom HTML CSS JavaScript website project named Fashion Studio.
+Create a responsive website project named Fashion Studio.
 ```
 
 ```text
-In Fashion Studio create a page pages/about.html titled About the Designer.
+In Fashion Studio create pages/about.html titled About the Designer.
 ```
 
 ```text
@@ -118,101 +120,41 @@ Update css/style.css in Fashion Studio with this complete CSS: ...
 ```
 
 ```text
-In Fashion Studio index.html replace "Old Heading" with "New Heading".
-```
-
-```text
 Validate the Fashion Studio website project.
 ```
 
-For large coding tasks, Jarvis can generate the requested code through Gemini and then call the verified Website Studio file tool. Existing files receive a timestamped `.kb-backup-*` copy before replacement.
+### WordPress
 
-## WordPress work
+Precondition: a signed-in WordPress `wp-admin` tab is already open.
 
-Precondition: a signed-in WordPress `wp-admin` tab must already exist in Chrome.
+Supported common workflows:
 
-Supported operations:
+- create a post or page;
+- update the current editor;
+- fill title and content;
+- save a draft;
+- publish after one final confirmation;
+- use content written by Jarvis;
+- use the latest readable ChatGPT response.
 
-- create a post
-- create a page
-- update the currently open editor
-- save as draft
-- publish after one final confirmation
-- use supplied content
-- use the latest readable assistant response from an existing ChatGPT tab
-
-Examples:
-
-```text
-Create a WordPress draft post titled "Summer Fashion Guide"
-and write the complete article yourself.
-```
-
-```text
-Use the latest response in my existing ChatGPT tab and create a WordPress
-draft page titled "About Our Studio".
-```
-
-```text
-Publish the prepared WordPress post.
-```
-
-Publishing must request one final confirmation. WordPress plugins, custom editors, Elementor versions and site-specific admin layouts can differ. Version 14 directly supports common Gutenberg and classic editor controls, while unusual editors may require screen vision and one-step visual operation.
-
-## WhatsApp rule
-
-For messaging, Jarvis does not create, refresh or navigate to a new WhatsApp Web tab. It uses an existing signed-in tab, optionally searches for the contact, verifies the chat header, types the exact draft and verifies the outgoing message after confirmation.
+Gutenberg and classic-editor paths are directly supported. Site-specific builders and unusual Elementor versions may require screen vision and verified one-step visual interaction.
 
 ## Installation
 
-1. Extract the complete Version 14 package.
+1. Extract the complete Version 15 package.
 2. Run `KB_Jarvis_OS.exe`.
 3. Open `chrome://extensions/`.
 4. Remove or reload the older KB Jarvis Browser Companion.
-5. Enable Developer mode.
+5. Enable **Developer mode**.
 6. Select **Load unpacked** and choose the included `BrowserCompanion` folder.
-7. Confirm Browser Companion version `14.0.0`.
-8. Open **Gemini & Voice Settings** and save the API key.
-9. Start voice only when needed.
-10. Enable screen or camera vision only when visual context is useful.
+7. Confirm Browser Companion version `15.0.0`.
+8. Open **Gemini & Voice Settings**.
+9. Keep the recommended female voice `Laomedeia`, or select another listed voice.
+10. Save the API key; existing compatible DPAPI settings are retained.
+11. Start voice, screen or camera only when needed.
 
-## First acceptance commands
+## Important operational boundaries
 
-```text
-Who created you?
-```
+Jarvis cannot bypass passwords, CAPTCHA, two-factor authentication, UAC secure desktop, platform restrictions or API quota. No legitimate Windows application can guarantee every conceivable task. Version 15 reports verified completion, partial completion, pending confirmation or the exact blocker instead of falsely saying `done`.
 
-```text
-Organize all Notepad text files in my safe PC user folders into a Desktop
-folder named Organized Notepad Files.
-```
-
-```text
-Open YouTube and play Pasoori Coke Studio.
-```
-
-```text
-Create a custom HTML CSS JavaScript website project named Tomorrow Website.
-```
-
-```text
-Create a WordPress draft post titled "Jarvis Test" with content
-"Version 14 WordPress draft is working."
-```
-
-With an existing signed-in WhatsApp tab:
-
-```text
-Send "Version 14 is ready" to Zain on WhatsApp.
-```
-
-## Operational boundaries
-
-- Login, CAPTCHA and two-factor authentication cannot be bypassed.
-- WordPress, YouTube and WhatsApp depend on an accessible signed-in browser session where required.
-- UAC secure desktop and higher-integrity windows can block normal injected input.
-- Camera access depends on Windows privacy permission and the camera driver.
-- Bluetooth devices and overloaded audio drivers can still cause hardware-level voice interruptions.
-- Moving files, sending messages, publishing, deleting, purchases and Windows power operations remain confirmation protected.
-- Jarvis reports completion only when the local skill or browser companion returns supporting evidence.
-- `Close Jarvis` closes only Jarvis and never shuts down Windows.
+`Close Jarvis` closes only Jarvis and never shuts down Windows.
