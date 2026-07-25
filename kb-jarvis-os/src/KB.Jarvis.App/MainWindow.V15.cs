@@ -13,7 +13,7 @@ public partial class MainWindow
 
     public void InitializeV15()
     {
-        InitializeV13();
+        InitializeV14();
         Title = "KB Jarvis OS 15 — Female Executive";
         ApplyV15Branding(this);
         AddLog("Jarvis 15 female executive persona, fluent voice transport and verified multi-task queue loaded.");
