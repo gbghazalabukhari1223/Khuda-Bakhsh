@@ -1,0 +1,182 @@
+name: Complete KB Jarvis OS v15 Release
+
+on:
+  push:
+    branches:
+      - kb-jarvis-os-v15-female-multitask
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-v15-complete-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  complete-release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Validate Browser Companion
+        shell: pwsh
+        run: |
+          node --check kb-jarvis-os/browser-companion/service-worker.js
+          node --check kb-jarvis-os/browser-companion/page-agent.js
+          node --check kb-jarvis-os/browser-companion/popup.js
+          $manifest = Get-Content kb-jarvis-os/browser-companion/manifest.json -Raw | ConvertFrom-Json
+          if ($manifest.version -ne '15.0.0') { throw "Expected Browser Companion 15.0.0, got $($manifest.version)" }
+
+      - name: Restore and build
+        shell: pwsh
+        run: |
+          dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
+          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore
+
+      - name: Publish clean self-contained Windows x64 application
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/publish | Out-Null
+          dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/publish
+
+      - name: Actual application launch smoke test
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'artifacts/publish/KB_Jarvis_OS.exe'
+          $before = Get-Date
+          $process = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 15
+          $process.Refresh()
+          if ($process.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$before } -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|Application Error|.NET Runtime' } |
+              Select-Object -First 20 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "KB Jarvis exited during the launch smoke test. Exit code: $($process.ExitCode)"
+          }
+          Write-Host "KB Jarvis remained running for 15 seconds. Startup smoke test passed. PID=$($process.Id)"
+          Stop-Process -Id $process.Id -Force
+
+      - name: Assemble complete portable application
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/publish/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/publish/README.md
+          Copy-Item kb-jarvis-os/USER_GUIDE.md artifacts/publish/USER_GUIDE.md
+          Copy-Item kb-jarvis-os/CHANGELOG.md artifacts/publish/CHANGELOG.md
+          Copy-Item kb-jarvis-os/LICENSE.txt artifacts/publish/LICENSE.txt
+          Copy-Item kb-jarvis-os/PRIVACY.md artifacts/publish/PRIVACY.md
+          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/publish/ACCEPTANCE_TESTS.md
+
+      - name: Install Inno Setup compiler
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build genuine Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/release | Out-Null
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler was not found at $iscc" }
+          & $iscc 'kb-jarvis-os\installer\KB-Jarvis.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE" }
+          $setup = 'artifacts/release/KB-JARVIS-Setup-x64.exe'
+          if (-not (Test-Path $setup)) { throw "Installer was not generated." }
+
+      - name: Silent installer install-launch-uninstall test
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path 'artifacts/release/KB-JARVIS-Setup-x64.exe'
+          $installDir = Join-Path $env:RUNNER_TEMP 'KB Jarvis OS 15 Smoke Install'
+          $arguments = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$installDir")
+          $installer = Start-Process $setup -ArgumentList $arguments -PassThru -Wait
+          if ($installer.ExitCode -ne 0) { throw "Silent installer failed with exit code $($installer.ExitCode)" }
+          $installedExe = Join-Path $installDir 'KB_Jarvis_OS.exe'
+          if (-not (Test-Path $installedExe)) { throw "Installed executable was not found at $installedExe" }
+          $before = Get-Date
+          $app = Start-Process $installedExe -PassThru
+          Start-Sleep -Seconds 12
+          $app.Refresh()
+          if ($app.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{ LogName='Application'; StartTime=$before } -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|Application Error|.NET Runtime' } |
+              Select-Object -First 20 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "Installed KB Jarvis crashed. Exit code: $($app.ExitCode)"
+          }
+          Stop-Process -Id $app.Id -Force
+          $uninstaller = Join-Path $installDir 'unins000.exe'
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller was not registered." }
+          $uninstall = Start-Process $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
+          if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)" }
+          Write-Host 'Installer install, installed-app launch and uninstall smoke tests passed.'
+
+      - name: Build portable, Browser Companion and clean source ZIPs
+        shell: pwsh
+        run: |
+          Compress-Archive -Path artifacts/publish/* -DestinationPath artifacts/release/KB-Jarvis-Portable-x64.zip -CompressionLevel Optimal -Force
+          Compress-Archive -Path kb-jarvis-os/browser-companion/* -DestinationPath artifacts/release/KB-Jarvis-BrowserCompanion-v15.zip -CompressionLevel Optimal -Force
+
+          $sourceRoot = 'artifacts/source-clean'
+          New-Item -ItemType Directory -Force -Path $sourceRoot | Out-Null
+          $tracked = git ls-files kb-jarvis-os .github/workflows/kb-jarvis-v15-complete-release.yml |
+            Where-Object { $_ -notmatch '(^|/)(bin|obj)/' }
+          foreach ($file in $tracked) {
+            $destination = Join-Path $sourceRoot $file
+            New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
+            Copy-Item $file $destination -Force
+          }
+          Compress-Archive -Path "$sourceRoot/*" -DestinationPath artifacts/release/KB-Jarvis-Source-v15.zip -CompressionLevel Optimal -Force
+
+      - name: Add release documentation and checksums
+        shell: pwsh
+        run: |
+          Copy-Item kb-jarvis-os/README.md artifacts/release/README.md
+          Copy-Item kb-jarvis-os/USER_GUIDE.md artifacts/release/USER_GUIDE.md
+          Copy-Item kb-jarvis-os/CHANGELOG.md artifacts/release/CHANGELOG.md
+          Copy-Item kb-jarvis-os/LICENSE.txt artifacts/release/LICENSE.txt
+          Copy-Item kb-jarvis-os/PRIVACY.md artifacts/release/PRIVACY.md
+          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/release/ACCEPTANCE_TESTS.md
+          @(
+            'KB Jarvis OS 15 Complete Release',
+            'Developer: KB (Khuda Bakhsh)',
+            "Source commit: $env:GITHUB_SHA",
+            'Windows build: clean source compilation; no post-build binary modification',
+            'Application launch smoke test: PASSED',
+            'Installer silent installation: PASSED',
+            'Installed application launch: PASSED',
+            'Silent uninstall: PASSED',
+            "Built: $(Get-Date -Format o)"
+          ) | Set-Content artifacts/release/RELEASE_MANIFEST.txt
+
+          $checksumLines = Get-ChildItem artifacts/release -File |
+            Where-Object { $_.Name -ne 'SHA256SUMS.txt' } |
+            Sort-Object Name |
+            ForEach-Object { "$( (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() ) *$($_.Name)" }
+          $checksumLines | Set-Content artifacts/release/SHA256SUMS.txt
+          Get-Content artifacts/release/SHA256SUMS.txt
+
+      - name: Upload complete release set
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v15-COMPLETE-RELEASE
+          path: artifacts/release/
+          if-no-files-found: error
+          retention-days: 30
