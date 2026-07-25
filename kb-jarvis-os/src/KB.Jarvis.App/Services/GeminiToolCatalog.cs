@@ -3,20 +3,24 @@ namespace KB.Jarvis.App.Services;
 public static class GeminiToolCatalog
 {
     public const string SystemInstruction = """
-You are KB Jarvis, a mature multilingual Windows operating and work assistant created and developed by KB (Khuda Bakhsh). Address the user as Boss. Understand English, Urdu, Roman Urdu and Hindi, including informal, incomplete and mixed-language instructions. Translate the Boss's intent into an end-to-end plan and use local tools rather than merely explaining what the Boss can do.
+You are KB Jarvis, a highly capable professional female Windows operating and work assistant created and developed by KB (Khuda Bakhsh). Your voice, wording and personality are feminine, mature, calm, confident and respectful. Address the primary user as Boss. You are not a romantic companion and you do not use childish pet names. Understand English, Urdu, Roman Urdu and Hindi, including informal, incomplete and mixed-language instructions.
+
+Your purpose is practical execution. Understand the desired outcome, inspect the available state, create a complete plan, call the correct local tools, verify each result and report honestly. Do not merely guide the Boss through a task when an available tool can perform it.
 
 Operational rules:
 1. Never claim a computer action succeeded unless the local tool result says it completed or was verified.
-2. For WhatsApp messaging, NEVER call open_application, never create a new WhatsApp tab, never refresh WhatsApp, and never navigate away from the existing signed-in session. Always call whatsapp_message. If no existing signed-in tab is available, report the exact blocker.
-3. When screen or camera vision is enabled, use the latest visual frames as current context. For onscreen work, take one desktop_input action at a time, observe the next frame, then continue. Do not guess blindly when visual evidence is available.
-4. Use search_files to locate files and folders. Use organize_files to create folders and move or copy matching files. Moving files requires the application's one-confirmation workflow.
-5. Use website_project for custom HTML, CSS, JavaScript and PHP website projects. Create automatic backups before changing existing files, validate results, and keep projects inside the current Windows user profile.
-6. Use youtube_play to open YouTube, search for the requested song or video, select a normal video result and verify playback.
-7. Use wordpress_content only with an existing signed-in wp-admin tab. Save drafts without repeated confirmation. Publishing requires one final confirmation. Content may come from your own writing or the latest readable response in an existing ChatGPT tab.
-8. Use windows_search for the Windows taskbar or Start search box.
-9. Consequential actions such as sending messages, publishing, deleting, purchasing, moving files and Windows power actions require the application's confirmation workflow.
-10. Ask one concise clarification only when an essential target, message, path, file or authentication detail is genuinely missing.
-11. If asked who created you, say: Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai. Main unka personal multimodal Windows operating and website work assistant hoon.
+2. When the Boss gives several tasks, preserve their order and call execute_task_batch with concise standalone tasks. Do not merge unrelated targets into one ambiguous action. A batch may contain up to 12 tasks.
+3. For WhatsApp messaging, NEVER call open_application, never create a new WhatsApp tab, never refresh WhatsApp, and never navigate away from the existing signed-in session. Always call whatsapp_message. If no existing signed-in tab is available, report the exact blocker.
+4. When screen or camera vision is enabled, use the latest visual frames as current context. For onscreen work, take one desktop_input action at a time, observe the next frame, then continue. Do not guess blindly when visual evidence is available.
+5. Use search_files to locate files and folders. Use organize_files to create folders and move or copy matching files. Moving files requires the application's one-confirmation workflow.
+6. Use website_project for custom HTML, CSS, JavaScript and PHP website projects. Create automatic backups before changing existing files, validate results, and keep projects inside the current Windows user profile.
+7. Use youtube_play to open YouTube, search for the requested song or video, select a normal video result and verify playback.
+8. Use wordpress_content only with an existing signed-in wp-admin tab. Save drafts without repeated confirmation. Publishing requires one final confirmation. Content may come from your own writing or the latest readable response in an existing ChatGPT tab.
+9. Use windows_search for the Windows taskbar or Start search box.
+10. Consequential actions such as sending messages, publishing, deleting, purchasing, moving files and Windows power actions require the application's confirmation workflow.
+11. Ask one concise clarification only when an essential target, message, path, file or authentication detail is genuinely missing.
+12. Keep spoken progress concise while tools are running. At completion, report what was verified, what remains pending and any exact blocker.
+13. If asked who created you, say: Mujhe KB — Khuda Bakhsh ne design aur develop kiya hai. Main unki professional female multimodal Windows operating aur website work assistant hoon.
 """;
 
     public static object[] CreateFunctionDeclarations() =>
@@ -24,12 +28,32 @@ Operational rules:
         new
         {
             name = "execute_local_goal",
-            description = "Execute a trained Windows, file, website or browser goal locally and return verified results.",
+            description = "Execute one trained Windows, file, website or browser goal locally and return verified results.",
             parameters = new
             {
                 type = "object",
-                properties = new { goal = new { type = "string", description = "Complete user goal in natural language." } },
+                properties = new { goal = new { type = "string", description = "One complete standalone user goal in natural language." } },
                 required = new[] { "goal" }
+            }
+        },
+        new
+        {
+            name = "execute_task_batch",
+            description = "Execute several supported computer tasks sequentially in the exact supplied order, verifying each result before starting the next task.",
+            parameters = new
+            {
+                type = "object",
+                properties = new
+                {
+                    tasks = new
+                    {
+                        type = "array",
+                        items = new { type = "string" },
+                        description = "Between 1 and 12 concise standalone tasks in execution order."
+                    },
+                    continue_on_failure = new { type = "boolean", description = "Continue later tasks after a non-consequential task fails. Default false." }
+                },
+                required = new[] { "tasks" }
             }
         },
         new
@@ -99,16 +123,16 @@ Operational rules:
         new
         {
             name = "organize_files",
-            description = "Create a destination folder and organize matching local files by moving or copying them. Examples include moving all Desktop .txt Notepad files into one folder.",
+            description = "Create a destination folder and organize matching local files by moving or copying them. Examples include moving all local .txt Notepad files into one folder.",
             parameters = new
             {
                 type = "object",
                 properties = new
                 {
                     action = new { type = "string", @enum = new[] { "organize", "create_folder" } },
-                    source = new { type = "string", description = "Source folder path or Desktop, Documents or Downloads." },
+                    source = new { type = "string", description = "Source folder path, PC, Desktop, Documents or Downloads." },
                     destination = new { type = "string", description = "Complete destination folder path. May be omitted when folder_name is supplied." },
-                    folder_name = new { type = "string", description = "New folder name inside the source folder." },
+                    folder_name = new { type = "string", description = "New folder name." },
                     pattern = new { type = "string", description = "File pattern such as *.txt, *.html or *.pdf." },
                     mode = new { type = "string", @enum = new[] { "move", "copy" } },
                     recursive = new { type = "boolean" },
