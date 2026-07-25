@@ -2,7 +2,7 @@
 
 **Developer:** KB (Khuda Bakhsh)  
 **Product type:** Native Windows multimodal voice, desktop, browser, file and website work assistant  
-**Release standard:** JavaScript validation, .NET compilation, self-contained Windows publication and executable verification must pass before release.
+**Release standard:** JavaScript validation, .NET compilation, self-contained Windows publication, executable verification and a real Windows startup smoke test must pass before release.
 
 ## Identity and persona
 
@@ -47,7 +47,7 @@ and finally list my active browser tabs.
 
 The queue stops safely when:
 
-- a required step fails and continuation was not authorized;
+- a required step fails and continuation was not authorised;
 - a send, publish, file-move or other consequential action needs confirmation;
 - authentication or a protected Windows surface blocks execution.
 
