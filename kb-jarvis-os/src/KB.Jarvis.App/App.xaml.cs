@@ -30,6 +30,7 @@ public partial class App : Application
         var window = new MainWindow();
         MainWindow = window;
         window.InitializeV15();
+        window.InitializeOperationalV16();
         window.Show();
     }
 }
