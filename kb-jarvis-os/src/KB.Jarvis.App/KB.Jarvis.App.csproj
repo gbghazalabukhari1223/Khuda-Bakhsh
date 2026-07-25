@@ -7,13 +7,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>KB_Jarvis_OS</AssemblyName>
     <RootNamespace>KB.Jarvis.App</RootNamespace>
-    <Version>15.0.0</Version>
-    <FileVersion>15.0.0.0</FileVersion>
-    <AssemblyVersion>15.0.0.0</AssemblyVersion>
+    <Version>17.0.0</Version>
+    <FileVersion>17.0.0.0</FileVersion>
+    <AssemblyVersion>17.0.0.0</AssemblyVersion>
     <Authors>KB (Khuda Bakhsh)</Authors>
     <Company>KB</Company>
     <Product>KB Jarvis OS</Product>
-    <Description>Professional female multimodal Windows, browser, multi-task and website work assistant developed by KB (Khuda Bakhsh).</Description>
+    <Description>Advanced professional female multimodal Windows, browser, voice, multi-task and website operations assistant developed by KB (Khuda Bakhsh).</Description>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
