@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "KB Jarvis OS Browser Companion",
-  "version": "14.0.0",
-  "description": "Existing-session browser, YouTube and WordPress execution bridge for KB Jarvis OS 14. Developer: KB (Khuda Bakhsh).",
+  "version": "15.0.0",
+  "description": "Existing-session WhatsApp, browser, YouTube and WordPress execution bridge for KB Jarvis OS 15. Developer: KB (Khuda Bakhsh).",
   "permissions": [
     "tabs",
     "scripting",
@@ -22,7 +22,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "KB Jarvis OS 14 Browser Companion",
+    "default_title": "KB Jarvis OS 15 Browser Companion",
     "default_popup": "popup.html"
   }
 }
