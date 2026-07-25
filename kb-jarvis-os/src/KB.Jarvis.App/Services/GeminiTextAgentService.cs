@@ -20,69 +20,96 @@ public sealed class GeminiTextAgentService
             throw new InvalidOperationException("Gemini API key is not configured. Open Settings and save the key first.");
         }
 
-        var initialParts = new JsonArray(new JsonObject { ["text"] = prompt });
+        OperationalContextStore.BeginMission("text", prompt);
+        var initialParts = new JsonArray(
+            new JsonObject { ["text"] = prompt },
+            new JsonObject
+            {
+                ["text"] = "PERSISTED OPERATIONAL CONTEXT BEFORE THIS MISSION:\n" +
+                           OperationalContextStore.CreateModelContext()
+            });
         AppendParts(initialParts, VisualContextHub.CreateInlineParts("Visual context before the task"));
         var contents = new JsonArray
         {
             new JsonObject { ["role"] = "user", ["parts"] = initialParts }
         };
 
-        for (var round = 0; round < 8; round++)
+        try
         {
-            var response = await GenerateAsync(contents, settings, cancellationToken).ConfigureAwait(false);
-            var content = response?["candidates"]?[0]?["content"] as JsonObject
-                ?? throw new InvalidOperationException(ReadApiError(response) ?? "Gemini returned no candidate content.");
-            var parts = content["parts"] as JsonArray ?? new JsonArray();
-            var text = string.Join("", parts
-                .OfType<JsonObject>()
-                .Select(part => part["text"]?.GetValue<string>())
-                .Where(value => !string.IsNullOrWhiteSpace(value)));
-
-            var calls = parts
-                .OfType<JsonObject>()
-                .Where(part => part["functionCall"] is JsonObject)
-                .ToList();
-            if (calls.Count == 0)
+            for (var round = 0; round < 10; round++)
             {
-                return string.IsNullOrWhiteSpace(text)
-                    ? "Boss, the model returned an empty response."
-                    : text.Trim();
-            }
+                var response = await GenerateAsync(contents, settings, cancellationToken).ConfigureAwait(false);
+                var content = response?["candidates"]?[0]?["content"] as JsonObject
+                              ?? throw new InvalidOperationException(ReadApiError(response) ?? "Gemini returned no candidate content.");
+                var parts = content["parts"] as JsonArray ?? new JsonArray();
+                var text = string.Join("", parts
+                    .OfType<JsonObject>()
+                    .Select(part => part["text"]?.GetValue<string>())
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
 
-            contents.Add(content.DeepClone());
-            var functionParts = new JsonArray();
-            foreach (var callPart in calls)
-            {
-                var functionCall = (JsonObject)callPart["functionCall"]!;
-                var name = functionCall["name"]?.GetValue<string>()
-                    ?? throw new InvalidOperationException("Gemini requested an unnamed function.");
-                var argsNode = functionCall["args"] ?? new JsonObject();
-                using var argsDocument = JsonDocument.Parse(argsNode.ToJsonString());
-                string result;
-                try
+                var calls = parts
+                    .OfType<JsonObject>()
+                    .Where(part => part["functionCall"] is JsonObject)
+                    .ToList();
+                if (calls.Count == 0)
                 {
-                    result = await toolExecutor(name, argsDocument.RootElement.Clone(), cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception exception)
-                {
-                    result = $"Tool failed: {exception.Message}";
+                    var final = string.IsNullOrWhiteSpace(text)
+                        ? "Boss, the model returned an empty response. No operational success is being claimed."
+                        : text.Trim();
+                    OperationalContextStore.RecordAssistant(final);
+                    return final;
                 }
 
+                contents.Add(content.DeepClone());
+                var functionParts = new JsonArray();
+                foreach (var callPart in calls)
+                {
+                    var functionCall = (JsonObject)callPart["functionCall"]!;
+                    var name = functionCall["name"]?.GetValue<string>()
+                               ?? throw new InvalidOperationException("Gemini requested an unnamed function.");
+                    var argsNode = functionCall["args"] ?? new JsonObject();
+                    using var argsDocument = JsonDocument.Parse(argsNode.ToJsonString());
+                    var args = argsDocument.RootElement.Clone();
+                    string result;
+                    try
+                    {
+                        result = await toolExecutor(name, args, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        result = $"Tool failed: {exception.Message}";
+                    }
+
+                    OperationalContextStore.RecordTool(name, args, result);
+                    functionParts.Add(new JsonObject
+                    {
+                        ["functionResponse"] = new JsonObject
+                        {
+                            ["name"] = name,
+                            ["response"] = new JsonObject { ["result"] = result }
+                        }
+                    });
+                }
+
+                AppendParts(functionParts, VisualContextHub.CreateInlineParts("Updated visual context after the local action"));
                 functionParts.Add(new JsonObject
                 {
-                    ["functionResponse"] = new JsonObject
-                    {
-                        ["name"] = name,
-                        ["response"] = new JsonObject { ["result"] = result }
-                    }
+                    ["text"] = "UPDATED PERSISTED OPERATIONAL CONTEXT:\n" +
+                               OperationalContextStore.CreateModelContext()
                 });
+                contents.Add(new JsonObject { ["role"] = "user", ["parts"] = functionParts });
             }
 
-            AppendParts(functionParts, VisualContextHub.CreateInlineParts("Updated visual context after the local action"));
-            contents.Add(new JsonObject { ["role"] = "user", ["parts"] = functionParts });
+            throw new InvalidOperationException("Gemini exceeded the maximum bounded local tool-call rounds for one request.");
         }
-
-        throw new InvalidOperationException("Gemini exceeded the maximum local tool-call rounds for one request.");
+        catch (Exception exception)
+        {
+            OperationalContextStore.RecordState(
+                "FAILED",
+                "Gemini text mission did not complete",
+                evidence: exception.Message);
+            throw;
+        }
     }
 
     private async Task<JsonNode?> GenerateAsync(
@@ -96,7 +123,7 @@ public sealed class GeminiTextAgentService
         {
             ["systemInstruction"] = new JsonObject
             {
-                ["parts"] = new JsonArray(new JsonObject { ["text"] = GeminiToolCatalog.SystemInstruction })
+                ["parts"] = new JsonArray(new JsonObject { ["text"] = OperationalSystemInstruction.Text })
             },
             ["contents"] = contents.DeepClone(),
             ["tools"] = new JsonArray(JsonSerializer.SerializeToNode(new
@@ -105,8 +132,8 @@ public sealed class GeminiTextAgentService
             })!),
             ["generationConfig"] = new JsonObject
             {
-                ["temperature"] = 0.2,
-                ["maxOutputTokens"] = 1800
+                ["temperature"] = 0.15,
+                ["maxOutputTokens"] = 2400
             }
         };
 
