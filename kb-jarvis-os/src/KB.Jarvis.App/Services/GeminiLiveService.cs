@@ -12,7 +12,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
     private sealed record VisualPacket(byte[] Jpeg, string Source);
 
     private readonly SemaphoreSlim _sendGate = new(1, 1);
-    private readonly Channel<byte[]> _audioQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(12)
+    private readonly Channel<byte[]> _audioQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(30)
     {
         SingleReader = true,
         SingleWriter = false,
@@ -33,8 +33,9 @@ public sealed class GeminiLiveService : IAsyncDisposable
     private Task? _receiveTask;
     private Task? _mediaSendTask;
     private TaskCompletionSource<bool>? _setupCompletion;
-    private long _audioPacketsQueued;
-    private long _visualPacketsQueued;
+    private string? _sessionHandle;
+    private long _speakerActiveUntilTicks;
+    private long _suppressedMicPackets;
 
     public event Action<string>? StateChanged;
     public event Action<string>? InputTranscript;
@@ -54,6 +55,8 @@ public sealed class GeminiLiveService : IAsyncDisposable
 
         await StopAsync().ConfigureAwait(false);
         DrainMediaQueues();
+        Interlocked.Exchange(ref _speakerActiveUntilTicks, 0);
+        Interlocked.Exchange(ref _suppressedMicPackets, 0);
         _sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = _sessionCts.Token;
         _setupCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -63,7 +66,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         var endpoint = new Uri(
             "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent" +
             $"?key={Uri.EscapeDataString(settings.ApiKey)}");
-        StateChanged?.Invoke("CONNECTING");
+        StateChanged?.Invoke(string.IsNullOrWhiteSpace(_sessionHandle) ? "CONNECTING" : "RESUMING");
         await _socket.ConnectAsync(endpoint, token).ConfigureAwait(false);
         await SendSetupAsync(settings, token).ConfigureAwait(false);
         _receiveTask = Task.Run(() => ReceiveLoopAsync(token), token);
@@ -75,7 +78,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         _mediaSendTask = Task.Run(() => MediaSendLoopAsync(token), token);
         StartAudioDevices();
         StateChanged?.Invoke("LISTENING");
-        Diagnostic?.Invoke("Gemini Live started with bounded priority media queues; stale audio and visual frames will not accumulate.");
+        Diagnostic?.Invoke("Fluent Live voice ready: short bounded microphone packets, echo suppression, session compression and resumption are active.");
     }
 
     public async Task StopAsync()
@@ -138,7 +141,6 @@ public sealed class GeminiLiveService : IAsyncDisposable
         if (jpeg.Length == 0 || _socket?.State != WebSocketState.Open || cancellationToken.IsCancellationRequested)
             return Task.CompletedTask;
         _visualQueue.Writer.TryWrite(new VisualPacket(jpeg, source));
-        Interlocked.Increment(ref _visualPacketsQueued);
         return Task.CompletedTask;
     }
 
@@ -172,7 +174,9 @@ public sealed class GeminiLiveService : IAsyncDisposable
                     new { functionDeclarations = GeminiToolCatalog.CreateFunctionDeclarations() }
                 },
                 inputAudioTranscription = new { },
-                outputAudioTranscription = new { }
+                outputAudioTranscription = new { },
+                contextWindowCompression = new { slidingWindow = new { } },
+                sessionResumption = new { handle = _sessionHandle }
             }
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -181,13 +185,13 @@ public sealed class GeminiLiveService : IAsyncDisposable
     {
         _playbackBuffer = new BufferedWaveProvider(new WaveFormat(24000, 16, 1))
         {
-            BufferDuration = TimeSpan.FromSeconds(5),
+            BufferDuration = TimeSpan.FromSeconds(3),
             DiscardOnBufferOverflow = true,
             ReadFully = true
         };
         _speaker = new WaveOutEvent
         {
-            DesiredLatency = 90,
+            DesiredLatency = 70,
             NumberOfBuffers = 4
         };
         _speaker.Init(_playbackBuffer);
@@ -196,7 +200,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
         _microphone = new WaveInEvent
         {
             WaveFormat = new WaveFormat(16000, 16, 1),
-            BufferMilliseconds = 80,
+            BufferMilliseconds = 40,
             NumberOfBuffers = 4
         };
         _microphone.DataAvailable += MicrophoneOnDataAvailable;
@@ -206,10 +210,15 @@ public sealed class GeminiLiveService : IAsyncDisposable
     private void MicrophoneOnDataAvailable(object? sender, WaveInEventArgs eventArgs)
     {
         if (_socket?.State != WebSocketState.Open || _sessionCts?.IsCancellationRequested != false) return;
+        if (Environment.TickCount64 < Interlocked.Read(ref _speakerActiveUntilTicks))
+        {
+            Interlocked.Increment(ref _suppressedMicPackets);
+            return;
+        }
+
         var copy = new byte[eventArgs.BytesRecorded];
         Buffer.BlockCopy(eventArgs.Buffer, 0, copy, 0, copy.Length);
         _audioQueue.Writer.TryWrite(copy);
-        Interlocked.Increment(ref _audioPacketsQueued);
     }
 
     private async Task MediaSendLoopAsync(CancellationToken cancellationToken)
@@ -220,7 +229,7 @@ public sealed class GeminiLiveService : IAsyncDisposable
             {
                 var workDone = false;
                 var audioBurst = 0;
-                while (audioBurst < 5 && _audioQueue.Reader.TryRead(out var audio))
+                while (audioBurst < 8 && _audioQueue.Reader.TryRead(out var audio))
                 {
                     await SendAudioPacketAsync(audio, cancellationToken).ConfigureAwait(false);
                     audioBurst++;
@@ -298,6 +307,20 @@ public sealed class GeminiLiveService : IAsyncDisposable
                     StateChanged?.Invoke("CONNECTED");
                 }
 
+                if (root.TryGetProperty("sessionResumptionUpdate", out var resumptionUpdate))
+                {
+                    var resumable = resumptionUpdate.TryGetProperty("resumable", out var resumableElement)
+                                    && resumableElement.ValueKind == JsonValueKind.True;
+                    var handle = resumptionUpdate.TryGetProperty("newHandle", out var handleElement)
+                        ? handleElement.GetString()
+                        : null;
+                    if (resumable && !string.IsNullOrWhiteSpace(handle))
+                    {
+                        _sessionHandle = handle;
+                        Diagnostic?.Invoke("Gemini Live session resumption handle refreshed.");
+                    }
+                }
+
                 if (root.TryGetProperty("serverContent", out var serverContent))
                 {
                     ReadTranscriptions(serverContent);
@@ -309,7 +332,8 @@ public sealed class GeminiLiveService : IAsyncDisposable
                 }
                 if (root.TryGetProperty("goAway", out var goAway))
                 {
-                    Diagnostic?.Invoke($"Gemini requested reconnection: {goAway}");
+                    StateChanged?.Invoke("RECONNECTING");
+                    Diagnostic?.Invoke($"Gemini requested graceful reconnection: {goAway}");
                 }
             }
         }
@@ -352,12 +376,25 @@ public sealed class GeminiLiveService : IAsyncDisposable
             var bytes = Convert.FromBase64String(audioData.GetString() ?? string.Empty);
             var buffer = _playbackBuffer;
             if (buffer is null) continue;
-            if (buffer.BufferedDuration > TimeSpan.FromSeconds(4))
+            if (buffer.BufferedDuration > TimeSpan.FromSeconds(2.2))
             {
                 buffer.ClearBuffer();
-                Diagnostic?.Invoke("Audio playback backlog was cleared to keep Jarvis speech synchronized.");
+                Diagnostic?.Invoke("Stale speech backlog cleared to keep Jarvis synchronized.");
             }
             buffer.AddSamples(bytes, 0, bytes.Length);
+            var durationMilliseconds = Math.Max(20L, bytes.Length * 1000L / (24000L * 2L));
+            ExtendSpeakerActive(durationMilliseconds + 140L);
+        }
+    }
+
+    private void ExtendSpeakerActive(long milliseconds)
+    {
+        var candidate = Environment.TickCount64 + milliseconds;
+        while (true)
+        {
+            var current = Interlocked.Read(ref _speakerActiveUntilTicks);
+            if (current >= candidate) return;
+            if (Interlocked.CompareExchange(ref _speakerActiveUntilTicks, candidate, current) == current) return;
         }
     }
 
@@ -429,8 +466,6 @@ public sealed class GeminiLiveService : IAsyncDisposable
     {
         while (_audioQueue.Reader.TryRead(out _)) { }
         while (_visualQueue.Reader.TryRead(out _)) { }
-        Interlocked.Exchange(ref _audioPacketsQueued, 0);
-        Interlocked.Exchange(ref _visualPacketsQueued, 0);
     }
 
     public async ValueTask DisposeAsync()
