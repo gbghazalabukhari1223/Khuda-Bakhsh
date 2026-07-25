@@ -104,12 +104,89 @@ jobs:
           Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v15/BrowserCompanion
           Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v15/README.md
           Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v15/ACCEPTANCE_TESTS.md
+          $worker = 'artifacts/KB-Jarvis-OS-v15/BrowserCompanion/service-worker.js'
+          $agent = 'artifacts/KB-Jarvis-OS-v15/BrowserCompanion/page-agent.js'
+          (Get-Content $worker -Raw).Replace("const VERSION = '14.0.0';", "const VERSION = '15.0.0';") | Set-Content $worker -NoNewline
+          (Get-Content $agent -Raw).Replace("'14.0.0'", "'15.0.0'") | Set-Content $agent -NoNewline
+          node --check $worker
+          node --check $agent
+
+      - name: Package standalone GitHub-ready source
+        shell: pwsh
+        run: |
+          $source = 'artifacts/KB-Jarvis-OS-v15-GitHub-Ready-Source'
+          New-Item -ItemType Directory -Force -Path $source | Out-Null
+          Copy-Item -Recurse -Force kb-jarvis-os/* $source
+          New-Item -ItemType Directory -Force -Path "$source/.github/workflows" | Out-Null
+          $worker = "$source/browser-companion/service-worker.js"
+          $agent = "$source/browser-companion/page-agent.js"
+          (Get-Content $worker -Raw).Replace("const VERSION = '14.0.0';", "const VERSION = '15.0.0';") | Set-Content $worker -NoNewline
+          (Get-Content $agent -Raw).Replace("'14.0.0'", "'15.0.0'") | Set-Content $agent -NoNewline
+          @'
+          name: Build KB Jarvis OS 15
+          on:
+            push:
+              branches: [ main ]
+            pull_request:
+              branches: [ main ]
+            workflow_dispatch:
+          permissions:
+            contents: read
+          jobs:
+            build-windows:
+              runs-on: windows-latest
+              timeout-minutes: 35
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-dotnet@v4
+                  with:
+                    dotnet-version: '8.0.x'
+                - name: Validate Browser Companion
+                  shell: pwsh
+                  run: |
+                    node --check browser-companion/service-worker.js
+                    node --check browser-companion/page-agent.js
+                    node --check browser-companion/popup.js
+                    $manifest = Get-Content browser-companion/manifest.json -Raw | ConvertFrom-Json
+                    if ([version]$manifest.version -lt [version]'15.0.0') { throw "Unexpected Browser Companion version" }
+                - name: Restore
+                  run: dotnet restore src/KB.Jarvis.App/KB.Jarvis.App.csproj
+                - name: Build
+                  run: dotnet build src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore
+                - name: Publish Windows x64
+                  run: dotnet publish src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v15
+                - name: Upload Windows build
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: KB-Jarvis-OS-v15-Windows-x64
+                    path: artifacts/KB-Jarvis-OS-v15/
+                    if-no-files-found: error
+          '@ | Set-Content "$source/.github/workflows/windows-build.yml"
+          @'
+          # KB Jarvis OS 15
+
+          Professional female multimodal Windows and browser work assistant.
+
+          Developer: KB (Khuda Bakhsh)
+
+          This folder is a standalone GitHub repository layout. Push its contents to an empty repository, then enable GitHub Actions to build the self-contained Windows x64 executable.
+          '@ | Set-Content "$source/REPOSITORY_README.md"
+          node --check $worker
+          node --check $agent
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
           name: KB-Jarvis-OS-v15-Windows-x64
           path: artifacts/KB-Jarvis-OS-v15/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload GitHub-ready source
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v15-GitHub-Ready-Source
+          path: artifacts/KB-Jarvis-OS-v15-GitHub-Ready-Source/
           if-no-files-found: error
           retention-days: 30
 
