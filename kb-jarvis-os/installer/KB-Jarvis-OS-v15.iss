@@ -1,5 +1,5 @@
 #define MyAppName "KB Jarvis OS"
-#define MyAppVersion "15.0.2"
+#define MyAppVersion "15.0.3"
 #define MyAppPublisher "KB (Khuda Bakhsh)"
 #define MyAppExeName "KB_Jarvis_OS.exe"
 
