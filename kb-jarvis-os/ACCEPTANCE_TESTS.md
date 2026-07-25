@@ -1,214 +1,218 @@
-# KB Jarvis OS 14 Acceptance Tests
+# KB Jarvis OS 15 Acceptance Tests
 
-## 1. Native startup and responsive command centre
+## 1. Native startup and identity
 
-1. Run `KB_Jarvis_OS.exe`.
-2. Resize from wide to compact.
-
-Expected:
-
-- Native WPF window opens.
-- Version 14.0.0 and Developer KB (Khuda Bakhsh) are visible.
-- Wide layout shows navigation, work core and telemetry.
-- Compact layout keeps the mission command box usable.
-- Work-core indicators show audio queue, file organizer, Website Studio and browser agent.
-
-## 2. Voice stability
-
-1. Configure Gemini.
-2. Click **START LISTENING**.
-3. Speak continuously for at least 30 seconds.
-4. Enable screen vision during the conversation.
-5. Ask Jarvis to open Calculator.
+Run `KB_Jarvis_OS.exe` and resize the window from wide to compact.
 
 Expected:
 
-- CONNECTING → CONNECTED → LISTENING.
-- Speech is transcribed and answered.
-- Calculator opens through the local tool.
-- Microphone packets do not build an unlimited async-send backlog.
-- Only a bounded recent audio window and latest visual frame are retained.
-- Voice remains responsive when screen vision is active.
+- native WPF window opens;
+- visible branding changes to Version 15;
+- `FEMALE EXECUTIVE ONLINE` is shown;
+- command area remains usable in compact mode;
+- `Who created you?` returns KB (Khuda Bakhsh) and the professional female assistant identity.
 
-Also test with Bluetooth and built-in speakers separately. Hardware or driver interruptions must be reported as environmental rather than falsely marked as an application success.
+## 2. Female voice and fluent audio
 
-## 3. Screen and camera delay
-
-1. Start screen vision.
-2. Move or resize a window.
-3. Confirm the preview updates within approximately one second under normal load.
-4. Start camera vision and move a visible object.
+1. Open Gemini & Voice Settings.
+2. Select `Laomedeia`.
+3. Start listening.
+4. Speak naturally for at least 45 seconds.
+5. Allow Jarvis to speak several multi-sentence responses.
+6. Enable screen vision during the same session.
 
 Expected:
 
-- Previews refresh up to approximately twice per second.
-- Only the latest compressed visual frame enters Gemini Live.
-- Old screen or camera frames do not queue indefinitely.
-- Missing camera permission produces a clear blocker.
+- CONNECTING or RESUMING → CONNECTED → LISTENING;
+- a professional female voice is heard;
+- microphone packets remain bounded;
+- the microphone is suppressed while streamed Jarvis speech is actively playing, reducing self-echo;
+- audio has priority over visual frames;
+- stale speaker backlog is cleared instead of playing several seconds late;
+- screen vision does not create an unlimited audio or video queue.
 
-## 4. Create a folder
+Repeat once using built-in audio and once using Bluetooth. Driver or network problems must be reported honestly rather than marked as a verified application success.
+
+## 3. Temporary Live reconnect
+
+During an active conversation, cause one temporary network interruption and restore it.
+
+Expected:
+
+- Jarvis reports reconnecting;
+- saved session-resumption handle is reused when available;
+- the Live session resumes without forcing a full manual restart;
+- typed tools remain available while voice reconnects.
+
+## 4. Verified multi-task mission
 
 Command:
 
 ```text
-Create a folder named Website Work on my Desktop.
+Open Calculator, then play Pasoori on YouTube,
+then create a Desktop folder named Jarvis Batch Test,
+and finally list my active browser tabs.
 ```
 
 Expected:
 
-- Folder is created.
-- `Directory.Exists` verification succeeds.
-- Exact path is reported.
+- Gemini calls the sequential task-batch tool;
+- no more than one batch runs at a time;
+- tasks remain in the supplied order;
+- each task starts only after the previous result is returned;
+- mission timeline shows `QUEUE 1/4`, `QUEUE 2/4`, and so on;
+- a combined verified report is produced.
 
-## 5. Organize Desktop Notepad files
+## 5. Multi-task failure policy
 
-Create three harmless `.txt` test files on Desktop, then say:
+Give a batch containing one impossible middle task.
+
+Expected:
+
+- default behaviour stops after the failed task;
+- later tasks do not silently run unless `continue_on_failure` was explicitly selected by the planner;
+- the exact failed task and blocker are shown.
+
+## 6. Batch confirmation safety
+
+Command:
 
 ```text
-Organize all Notepad text files on my Desktop into a folder named Organized Notepad Files.
+Create a Desktop folder named Organised Notes,
+move all PC Notepad files into it,
+then open Calculator.
 ```
 
 Expected:
 
-1. Jarvis scans Desktop for `*.txt`.
-2. It previews the matching count and filenames.
-3. It asks one confirmation before moving.
-4. After `Haan, kar do`, it creates the folder.
-5. Files are moved.
-6. Destination files are verified.
-7. Original paths no longer exist.
-8. Destination folder opens.
+- folder preparation can occur safely;
+- file movement pauses for one confirmation;
+- later tasks do not run while confirmation is pending;
+- no files move before approval;
+- the queue reports the paused task accurately.
 
-## 6. Safe PC user-folder organization
+## 7. Create and organise files
 
-Place test `.txt` files in Desktop, Documents and Downloads, then say:
+Place harmless `.txt` files in Desktop, Documents and Downloads, then say:
 
 ```text
-Meray PC par Notepad wali sab files ko Desktop ke Organized Notes folder mein move kar do.
+Meray PC par Notepad wali sab files ko Desktop ke
+Organized Notepad Files folder mein move kar do.
 ```
 
 Expected:
 
-- The safe PC scope includes Desktop, Documents and Downloads.
-- Windows, Program Files and other protected system locations are not scanned.
-- Duplicate filenames receive collision-safe names such as `notes (2).txt`.
-- One confirmation is requested before movement.
-- Every completed destination is verified.
+- safe PC scope includes Desktop, Documents and Downloads;
+- protected Windows and Program Files locations are excluded;
+- `*.txt` is inferred;
+- matching filenames are previewed;
+- one confirmation is requested;
+- collision-safe names are used;
+- each destination file is verified;
+- the result folder opens.
 
-## 7. File copy mode
+## 8. WhatsApp existing-session send
 
-```text
-Copy all PDF files from Downloads into a folder named PDF Archive on Desktop.
-```
-
-Expected: source files remain, verified copies exist, collisions are handled and one confirmation is requested.
-
-## 8. YouTube playback
+Precondition: an existing signed-in WhatsApp Web tab.
 
 ```text
-Open YouTube and play Pasoori Coke Studio.
+Send "KB Jarvis Version 15 test" to Zain on WhatsApp.
 ```
 
 Expected:
 
-- Browser Companion opens or reuses YouTube.
-- Search query is entered through a YouTube results URL.
-- A normal video result is selected.
-- Video page opens.
-- Playback is attempted.
-- Jarvis reports verified playing only when the HTML video is not paused and not ended.
-- Ads, autoplay blocking or account prompts are reported honestly.
+- no duplicate WhatsApp tab is created;
+- contact search and chat-header verification run;
+- exact draft is verified;
+- one confirmation is requested;
+- outgoing message is found before success is reported.
 
-## 9. Website project creation
+## 9. YouTube playback
 
 ```text
-Create a custom HTML CSS JavaScript website project named Tomorrow Website and open it.
+Open YouTube and play Afreen Afreen Coke Studio.
 ```
 
-Expected project location:
+Expected:
+
+- YouTube tab is reused or created;
+- search results page opens;
+- a normal video result is selected;
+- playback is attempted;
+- `playing=true` is reported only when the HTML video is actually playing;
+- ads, autoplay blocks or account prompts are reported.
+
+## 10. Screen and camera
+
+- Start screen vision and move a window.
+- Start camera vision and move a visible object.
+
+Expected:
+
+- previews update under normal load without a growing frame delay;
+- only the latest compressed visual frame enters the Live stream;
+- missing camera permission gives a precise blocker;
+- visual desktop actions follow observe → one action → updated observation.
+
+## 11. Website project
+
+```text
+Create a responsive HTML CSS JavaScript website project named Tomorrow Website and open it.
+```
+
+Expected project:
 
 ```text
 Documents\KB Jarvis Websites\Tomorrow Website
 ```
 
-Expected files/folders:
+Expected verified items:
 
-- `index.html`
-- `css/style.css`
-- `js/app.js`
-- `images`
-- `pages`
+- `index.html`;
+- `css/style.css`;
+- `js/app.js`;
+- `images` folder;
+- `pages` folder.
 
-All required files are verified before completion is reported.
-
-## 10. Website page creation
+## 12. Website page and code editing
 
 ```text
 In Tomorrow Website create pages/about.html titled About Us.
 ```
 
-Expected:
-
-- Page is created inside the project.
-- CSS and JavaScript relative links point back to project assets.
-- Exact file content is read back and verified.
-
-## 11. Website edit and backup
-
-First save known content in `css/style.css`, then say:
+Then:
 
 ```text
-Update css/style.css in Tomorrow Website with this complete CSS: body { font-family: Arial; }
+Update css/style.css in Tomorrow Website with this complete CSS:
+body { font-family: Arial; }
 ```
 
 Expected:
 
-- Original file is copied to `style.css.kb-backup-<timestamp>`.
-- New content is written through a temporary file.
-- Temporary file atomically replaces the target.
-- Exact disk content is verified.
+- page and asset links are valid for the project layout;
+- existing CSS receives a timestamped backup;
+- replacement uses a temporary file;
+- exact disk content is read back and verified.
 
-## 12. Website search-and-replace
+## 13. WordPress draft
 
-```text
-In Tomorrow Website index.html replace "Professional custom website" with "Tomorrow's professional website".
-```
-
-Expected: occurrence count is reported, backup is created and replacement is verified.
-
-## 13. Website validation
+Precondition: existing signed-in WordPress `/wp-admin/` tab.
 
 ```text
-Validate the Tomorrow Website project.
-```
-
-Expected: HTML, CSS, JavaScript and PHP file counts are reported; basic `<html>` and `<title>` checks run for HTML pages.
-
-## 14. WordPress draft
-
-Precondition: an existing signed-in Chrome tab is open under a WordPress `/wp-admin/` URL.
-
-```text
-Create a WordPress draft post titled "Jarvis Test" with content "Version 14 draft test".
+Create a WordPress draft post titled "Jarvis Test"
+with content "Version 15 female executive test".
 ```
 
 Expected:
 
-- Existing admin session is used.
-- New post editor opens in that same signed-in tab.
-- Common Gutenberg or classic title/content controls are filled.
-- Draft-save control is clicked.
-- Saved state is verified when visible.
-- No publish confirmation is requested for draft-only work.
+- existing admin session is used;
+- common Gutenberg or classic controls are filled;
+- draft is saved;
+- no publish confirmation is requested for draft-only work.
 
-## 15. WordPress page from ChatGPT
+## 14. WordPress from ChatGPT
 
-Preconditions:
-
-- Existing ChatGPT tab contains a readable latest assistant response.
-- Existing WordPress admin tab is signed in.
-
-Command:
+Preconditions: existing ChatGPT tab with a readable latest assistant response and signed-in WordPress admin tab.
 
 ```text
 Use the latest response in my ChatGPT tab and create a WordPress draft page titled About Our Studio.
@@ -216,50 +220,16 @@ Use the latest response in my ChatGPT tab and create a WordPress draft page titl
 
 Expected:
 
-- Latest `[data-message-author-role="assistant"]` response is read.
-- Text is transferred directly through the Browser Companion, not through an unverified clipboard claim.
-- WordPress page editor is filled.
-- Draft is saved and verified where possible.
+- latest assistant response is read through Browser Companion;
+- content is inserted directly into WordPress;
+- no false clipboard claim is made;
+- draft state is reported.
 
-## 16. WordPress publish confirmation
+## 15. Consequential actions and honesty
 
-```text
-Publish the prepared WordPress post.
-```
-
-Expected: Jarvis requests one final confirmation. After confirmation, both the publish panel and final publish control are handled and published confirmation is checked.
-
-## 17. Existing-session WhatsApp
-
-Precondition: signed-in WhatsApp Web tab exists.
-
-```text
-Send "KB Jarvis 14 verified send" to Zain on WhatsApp.
-```
-
-Expected: no duplicate WhatsApp tab; contact and chat header are verified; one send confirmation; outgoing bubble verification.
-
-## 18. Browser Companion 14
-
-Expected:
-
-- Extension version `14.0.0`.
-- Automatic localhost reconnect.
-- WhatsApp, YouTube, WordPress and ChatGPT-read permissions are present.
-- JavaScript validation succeeds.
-- Closing Jarvis changes the extension to offline without uncontrolled reconnection errors.
-
-## 19. Lifecycle and safety
-
-- `Close Jarvis` closes only Jarvis.
-- Moving/copying files requires confirmation.
-- Sending requires confirmation.
-- WordPress publishing requires confirmation.
-- Deletion, purchasing and power actions are not executed silently.
-- Login, CAPTCHA, two-factor authentication and UAC secure desktop are not bypassed.
-
-## 20. Honest result reporting
-
-Request a workflow with an unsupported custom browser editor or inaccessible file.
-
-Expected: Jarvis reports the exact unsupported selector, permission, authentication or verification blocker. An attempted click is not reported as completed work.
+- message sending requires one confirmation;
+- publishing requires one confirmation;
+- moving files requires one confirmation;
+- passwords, CAPTCHA, two-factor authentication and UAC secure desktop are not bypassed;
+- unsupported work returns the exact blocker;
+- `Close Jarvis` closes only Jarvis and never shuts down Windows.
