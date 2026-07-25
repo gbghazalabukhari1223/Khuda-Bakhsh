@@ -1,0 +1,13 @@
+KB JARVIS OS PROPRIETARY LICENCE
+
+Copyright (c) 2026 KB (Khuda Bakhsh). All rights reserved.
+
+KB Jarvis OS, its source code, executable files, user interface, prompts, skills, Browser Companion, documentation and branding are proprietary works of KB (Khuda Bakhsh).
+
+Permission is granted to KB (Khuda Bakhsh), authorised members of his household, organisation or development team to install, operate, inspect, modify and back up the software for authorised personal and business purposes.
+
+No other person may redistribute, sell, sublicense, publish, rebrand, commercially exploit or represent this software as their own without prior written permission from KB (Khuda Bakhsh).
+
+Third-party packages and services remain subject to their own licences and terms. Gemini API usage is subject to Google's applicable terms. Windows, Chrome, WhatsApp, YouTube, WordPress and ChatGPT are trademarks or products of their respective owners; KB Jarvis OS is not endorsed by those companies.
+
+THE SOFTWARE IS PROVIDED AS IS, WITHOUT A GUARANTEE THAT EVERY COMPUTER, WEBSITE OR THIRD-PARTY SERVICE WILL REMAIN COMPATIBLE. CONSEQUENTIAL ACTIONS MUST BE REVIEWED BY THE AUTHORISED USER.

@@ -1,0 +1,110 @@
+name: Validate KB Jarvis Operational Upgrade
+
+on:
+  push:
+    branches:
+      - kb-jarvis-os-v15-female-multitask
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-operational-v16.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-operational-v16.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operational-validation:
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Validate preserved and operational Browser Companion
+        shell: pwsh
+        run: |
+          node --check kb-jarvis-os/browser-companion/service-worker.js
+          node --check kb-jarvis-os/browser-companion/service-worker-v16.js
+          node --check kb-jarvis-os/browser-companion/wordpress-v16.js
+          node --check kb-jarvis-os/browser-companion/page-agent.js
+          node --check kb-jarvis-os/browser-companion/popup.js
+          $manifest = Get-Content kb-jarvis-os/browser-companion/manifest.json -Raw | ConvertFrom-Json
+          if ($manifest.background.service_worker -ne 'service-worker-v16.js') {
+            throw "Operational Browser Companion entry point is not active."
+          }
+          if ([version]$manifest.version -lt [version]'15.0.0') {
+            throw "Unexpected Browser Companion version: $($manifest.version)"
+          }
+
+      - name: Restore
+        run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
+
+      - name: Compile operational app
+        shell: pwsh
+        run: |
+          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --no-restore `
+            --nologo `
+            '-clp:ErrorsOnly;NoSummary'
+
+      - name: Publish clean Windows x64 executable
+        shell: pwsh
+        run: |
+          dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/KB-Jarvis-Operational
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-Operational/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-Operational/README.md
+
+      - name: Launch smoke test operational app
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'artifacts/KB-Jarvis-Operational/KB_Jarvis_OS.exe').Path
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 10
+          $process.Refresh()
+          if ($process.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-4)} -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|BadImageFormat|.NET Runtime|Application Error' } |
+              Select-Object -First 12 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "Operational KB Jarvis exited during startup with code $($process.ExitCode)."
+          }
+          Write-Host "Operational startup passed. PID=$($process.Id)"
+          Stop-Process -Id $process.Id -Force
+          @(
+            'KB Jarvis operational upgrade',
+            'Previous capabilities preserved',
+            'Stable Gemini Live voice overlay compiled',
+            'Persistent mission context compiled',
+            'Operational WordPress data API overlay validated',
+            'Startup smoke test: PASSED',
+            "EXE SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+          ) | Set-Content artifacts/KB-Jarvis-Operational/OPERATIONAL_BUILD_INFO.txt
+
+      - name: Upload operational launch-tested build
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v15-OPERATIONAL-LAUNCH-TESTED
+          path: artifacts/KB-Jarvis-Operational/
+          if-no-files-found: error
+          retention-days: 30

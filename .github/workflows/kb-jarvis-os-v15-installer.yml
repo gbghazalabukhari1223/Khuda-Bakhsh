@@ -1,0 +1,122 @@
+name: Build KB Jarvis OS v15 Installer
+
+on:
+  push:
+    branches:
+      - kb-jarvis-os-v15-female-multitask
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-os-v15-installer.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-os-v15-installer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Validate and publish clean Windows build
+        shell: pwsh
+        run: |
+          node --check kb-jarvis-os/browser-companion/service-worker.js
+          node --check kb-jarvis-os/browser-companion/page-agent.js
+          node --check kb-jarvis-os/browser-companion/popup.js
+          dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
+          dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/KB-Jarvis-OS-v15
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v15/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v15/README.md
+          Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v15/ACCEPTANCE_TESTS.md
+          $worker = 'artifacts/KB-Jarvis-OS-v15/BrowserCompanion/service-worker.js'
+          $agent = 'artifacts/KB-Jarvis-OS-v15/BrowserCompanion/page-agent.js'
+          (Get-Content $worker -Raw).Replace("const VERSION = '14.0.0';", "const VERSION = '15.0.0';") | Set-Content $worker -NoNewline
+          (Get-Content $agent -Raw).Replace("'14.0.0'", "'15.0.0'") | Set-Content $agent -NoNewline
+
+      - name: Launch-test portable build before installer creation
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe'
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited) {
+            throw "Portable app exited during pre-installer launch test with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile genuine Setup EXE
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc 'kb-jarvis-os/installer/KB-Jarvis-OS-v15.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE" }
+          $setup = 'artifacts/installer/KB-Jarvis-OS-v15-Setup.exe'
+          if (-not (Test-Path $setup)) { throw "Setup executable was not created." }
+          if ((Get-Item $setup).Length -lt 50000000) { throw "Setup executable is unexpectedly small." }
+
+      - name: Silent install and installed-app launch test
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path 'artifacts/installer/KB-Jarvis-OS-v15-Setup.exe'
+          $installDir = Join-Path $env:TEMP 'KB-Jarvis-OS-v15-Install-Test'
+          if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
+          $installer = Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$installDir") -PassThru -Wait
+          if ($installer.ExitCode -ne 0) { throw "Silent installer test failed with exit code $($installer.ExitCode)." }
+          $installedExe = Join-Path $installDir 'KB_Jarvis_OS.exe'
+          if (-not (Test-Path $installedExe)) { throw "Installed Jarvis executable was not found." }
+          $app = Start-Process -FilePath $installedExe -PassThru
+          Start-Sleep -Seconds 8
+          $app.Refresh()
+          if ($app.HasExited) { throw "Installed Jarvis exited during launch test with code $($app.ExitCode)." }
+          Stop-Process -Id $app.Id -Force
+          $uninstaller = Join-Path $installDir 'unins000.exe'
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller was not created." }
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -PassThru -Wait
+          if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall test failed with exit code $($uninstall.ExitCode)." }
+          @(
+            'KB Jarvis OS 15 genuine Windows installer',
+            'Portable launch test: PASSED',
+            'Silent installation test: PASSED',
+            'Installed application launch test: PASSED',
+            'Uninstaller test: PASSED',
+            'No post-build binary patching',
+            "Built: $(Get-Date -Format o)",
+            "Setup SHA256: $((Get-FileHash $setup -Algorithm SHA256).Hash)"
+          ) | Set-Content 'artifacts/installer/INSTALLER_TEST.txt'
+          Get-FileHash $setup -Algorithm SHA256 | Format-List
+
+      - name: Upload tested Setup EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v15-TESTED-SETUP
+          path: artifacts/installer/
+          if-no-files-found: error
+          retention-days: 30

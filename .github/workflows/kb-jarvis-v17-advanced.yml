@@ -1,0 +1,144 @@
+name: Build KB Jarvis OS v17 Advanced Iron HUD
+
+on:
+  push:
+    branches:
+      - kb-jarvis-os-v15-female-multitask
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-v17-advanced.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-v17-advanced.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advanced-windows-validation:
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Validate Browser Companion remains operational
+        shell: pwsh
+        run: |
+          node --check kb-jarvis-os/browser-companion/service-worker.js
+          if (Test-Path kb-jarvis-os/browser-companion/service-worker-v16.js) {
+            node --check kb-jarvis-os/browser-companion/service-worker-v16.js
+          }
+          if (Test-Path kb-jarvis-os/browser-companion/wordpress-v16.js) {
+            node --check kb-jarvis-os/browser-companion/wordpress-v16.js
+          }
+          node --check kb-jarvis-os/browser-companion/page-agent.js
+          node --check kb-jarvis-os/browser-companion/popup.js
+
+      - name: Restore
+        run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
+
+      - name: Compile advanced voice and Iron HUD
+        shell: pwsh
+        run: |
+          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --no-restore `
+            --nologo `
+            '-clp:ErrorsOnly;NoSummary'
+
+      - name: Publish clean self-contained Windows x64 app
+        shell: pwsh
+        run: |
+          dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/KB-Jarvis-OS-v17-Advanced
+          Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v17-Advanced/BrowserCompanion
+          Copy-Item kb-jarvis-os/README.md artifacts/KB-Jarvis-OS-v17-Advanced/README.md
+          if (Test-Path kb-jarvis-os/ACCEPTANCE_TESTS.md) {
+            Copy-Item kb-jarvis-os/ACCEPTANCE_TESTS.md artifacts/KB-Jarvis-OS-v17-Advanced/ACCEPTANCE_TESTS.md
+          }
+
+      - name: Verify version and executable
+        shell: pwsh
+        run: |
+          $exe = 'artifacts/KB-Jarvis-OS-v17-Advanced/KB_Jarvis_OS.exe'
+          if (-not (Test-Path $exe)) { throw "Published executable not found: $exe" }
+          if ((Get-Item $exe).Length -lt 1000000) { throw 'Published executable is unexpectedly small.' }
+          $version = (Get-Item $exe).VersionInfo.FileVersion
+          if (-not $version.StartsWith('17.0.0')) { throw "Unexpected EXE version: $version" }
+          @(
+            'KB Jarvis OS 17.0.0 Advanced Iron HUD',
+            'Previous operational capabilities preserved',
+            'Continuous WASAPI voice output with WaveOut fallback',
+            'Adaptive jitter prebuffer and underrun recovery',
+            '80 ms microphone packet batching',
+            'Boss barge-in support',
+            'Voice-priority visual bandwidth',
+            'Live voice reactor telemetry',
+            'Iron-style cinematic WPF HUD',
+            'No post-build binary patching',
+            'Developer: KB (Khuda Bakhsh)',
+            "Built: $(Get-Date -Format o)",
+            "EXE SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+          ) | Set-Content artifacts/KB-Jarvis-OS-v17-Advanced/V17_BUILD_INFO.txt
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+
+      - name: Launch smoke test advanced app
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'artifacts/KB-Jarvis-OS-v17-Advanced/KB_Jarvis_OS.exe').Path
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 12
+          $process.Refresh()
+          if ($process.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|BadImageFormat|XamlParseException|.NET Runtime|Application Error' } |
+              Select-Object -First 15 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "KB Jarvis v17 exited during startup with code $($process.ExitCode)."
+          }
+          Write-Host "KB Jarvis v17 remained alive for 12 seconds. PID=$($process.Id)"
+          Stop-Process -Id $process.Id -Force
+          'Windows launch smoke test: PASSED' | Add-Content artifacts/KB-Jarvis-OS-v17-Advanced/V17_BUILD_INFO.txt
+
+      - name: Package portable release
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path artifacts/KB-Jarvis-OS-v17-Advanced/* `
+            -DestinationPath artifacts/KB-Jarvis-OS-v17-ADVANCED-IRON-HUD.zip `
+            -Force
+          Get-FileHash artifacts/KB-Jarvis-OS-v17-ADVANCED-IRON-HUD.zip -Algorithm SHA256 | Format-List
+
+      - name: Upload launch-tested v17 release
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v17-ADVANCED-IRON-HUD
+          path: artifacts/KB-Jarvis-OS-v17-ADVANCED-IRON-HUD.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unpacked diagnostics build
+        uses: actions/upload-artifact@v4
+        with:
+          name: KB-Jarvis-OS-v17-ADVANCED-Unpacked
+          path: artifacts/KB-Jarvis-OS-v17-Advanced/
+          if-no-files-found: error
+          retention-days: 30

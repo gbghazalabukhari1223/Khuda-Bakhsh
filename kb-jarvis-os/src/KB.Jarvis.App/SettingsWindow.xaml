@@ -1,0 +1,84 @@
+<Window x:Class="KB.Jarvis.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KB Jarvis Settings"
+        Width="650" Height="640"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#071019"
+        Foreground="#EAFBFF">
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#121E29" />
+            <Setter Property="Foreground" Value="#EAFBFF" />
+            <Setter Property="BorderBrush" Value="#2B7189" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,5,0,14" />
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="#121E29" />
+            <Setter Property="Foreground" Value="#EAFBFF" />
+            <Setter Property="BorderBrush" Value="#2B7189" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,5,0,14" />
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#121E29" />
+            <Setter Property="Foreground" Value="#EAFBFF" />
+            <Setter Property="BorderBrush" Value="#2B7189" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,5,0,14" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#162532" />
+            <Setter Property="Foreground" Value="#EAFBFF" />
+            <Setter Property="BorderBrush" Value="#2FCBEF" />
+            <Setter Property="Padding" Value="18,9" />
+            <Setter Property="Margin" Value="6" />
+        </Style>
+    </Window.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="JARVIS 15 INTELLIGENCE SETTINGS" Foreground="#67E9FF" FontSize="13" />
+            <TextBlock Text="Female Executive Voice and Agent Runtime" FontSize="25" FontWeight="SemiBold" Margin="0,8,0,5" />
+            <TextBlock Text="The API key remains encrypted with Windows DPAPI for this Windows account." Foreground="#88AAB8" TextWrapping="Wrap" />
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,20,0,10">
+            <StackPanel>
+                <TextBlock Text="Gemini API key" />
+                <PasswordBox x:Name="ApiKeyBox" />
+                <TextBlock Text="Live voice model" />
+                <TextBox x:Name="LiveModelBox" />
+                <TextBlock Text="Text planner model" />
+                <TextBox x:Name="TextModelBox" />
+                <TextBlock Text="Female Gemini voice" />
+                <ComboBox x:Name="VoiceNameBox" IsEditable="True">
+                    <ComboBoxItem Content="Laomedeia" ToolTip="Upbeat professional female voice" />
+                    <ComboBoxItem Content="Kore" ToolTip="Firm voice" />
+                    <ComboBoxItem Content="Aoede" ToolTip="Breezy voice" />
+                    <ComboBoxItem Content="Leda" ToolTip="Youthful voice" />
+                    <ComboBoxItem Content="Achernar" ToolTip="Soft voice" />
+                    <ComboBoxItem Content="Vindemiatrix" ToolTip="Gentle voice" />
+                    <ComboBoxItem Content="Sulafat" ToolTip="Warm voice" />
+                </ComboBox>
+                <CheckBox x:Name="AutoReconnectBox" Content="Automatically reconnect and resume Gemini Live after a temporary disconnect" Margin="0,8" />
+                <CheckBox x:Name="SpeakRepliesBox" Content="Speak typed-agent replies using the Windows voice fallback" Margin="0,8" />
+                <Border Background="#111C25" BorderBrush="#275668" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Recommended Version 15 defaults" Foreground="#67E9FF" FontWeight="SemiBold" />
+                        <TextBlock Text="Live: gemini-3.1-flash-live-preview&#10;Planner: gemini-3.6-flash&#10;Female voice: Laomedeia" TextWrapping="Wrap" Foreground="#9ABAC5" Margin="0,5,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="CANCEL" Click="Cancel_Click" />
+            <Button Content="SAVE SETTINGS" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</Window>
