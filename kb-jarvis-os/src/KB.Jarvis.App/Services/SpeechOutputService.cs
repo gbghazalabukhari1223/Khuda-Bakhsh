@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace KB.Jarvis.App.Services;
 
 public sealed class SpeechOutputService
@@ -6,7 +8,7 @@ public sealed class SpeechOutputService
 
     public async Task SpeakAsync(string text, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (string.IsNullOrWhiteSpace(text) || SpeechModeCoordinator.LiveVoiceActive)
         {
             return;
         }
@@ -14,9 +16,13 @@ public sealed class SpeechOutputService
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (SpeechModeCoordinator.LiveVoiceActive) return;
+
             await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (SpeechModeCoordinator.LiveVoiceActive) return;
+
                 var voiceType = Type.GetTypeFromProgID("SAPI.SpVoice");
                 if (voiceType is null)
                 {
@@ -27,9 +33,14 @@ public sealed class SpeechOutputService
                     ?? throw new InvalidOperationException("Windows SAPI voice could not be created.");
                 try
                 {
-                    voice.Rate = 0;
-                    voice.Volume = 100;
-                    voice.Speak(text, 0);
+                    voice.Rate = -1;
+                    voice.Volume = 96;
+                    foreach (var segment in SplitForSpeech(text))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (SpeechModeCoordinator.LiveVoiceActive) break;
+                        voice.Speak(segment, 0);
+                    }
                 }
                 finally
                 {
@@ -40,6 +51,22 @@ public sealed class SpeechOutputService
         finally
         {
             _gate.Release();
+        }
+    }
+
+    private static IEnumerable<string> SplitForSpeech(string text)
+    {
+        foreach (var sentence in Regex.Split(text.Trim(), @"(?<=[.!?۔])\s+"))
+        {
+            var remaining = sentence.Trim();
+            while (remaining.Length > 320)
+            {
+                var split = remaining.LastIndexOf(' ', 320);
+                if (split < 80) split = 320;
+                yield return remaining[..split].Trim();
+                remaining = remaining[split..].Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(remaining)) yield return remaining;
         }
     }
 }
