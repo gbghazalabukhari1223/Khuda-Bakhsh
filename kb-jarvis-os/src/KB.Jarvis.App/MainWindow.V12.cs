@@ -31,7 +31,7 @@ public partial class MainWindow
             ExecuteGeminiToolAsyncV12));
         SkillCountText.Text = $"{_skills.Skills.Count} TRAINED";
         UpdateVoiceStatusV12();
-        AddLog("Gemini Live voice, multimodal text planner and local tool-calling engine loaded.");
+        AddLog("Gemini Live female voice, multimodal text planner and local tool-calling engine loaded.");
 
         Closing += (_, _) =>
         {
@@ -48,7 +48,7 @@ public partial class MainWindow
         VoiceStatusText.Text = resolved;
         VoiceStatusText.Foreground = resolved is "LISTENING" or "CONNECTED"
             ? Brushes.LightGreen
-            : resolved is "CONNECTING" or "RECONNECTING"
+            : resolved is "CONNECTING" or "RECONNECTING" or "RESUMING"
                 ? Brushes.Gold
                 : resolved is "NOT CONFIGURED" or "ERROR"
                     ? Brushes.OrangeRed
@@ -63,7 +63,7 @@ public partial class MainWindow
             AddLog($"VOICE STATE · {state}");
             if (state == "LISTENING")
             {
-                SetMissionState("Jarvis is listening", "Speak naturally. Enable screen or camera vision when visual context is required.", "LISTENING", Brushes.LightGreen);
+                SetMissionState("Jarvis is listening", "Speak naturally. She can execute one task or a verified sequence.", "LISTENING", Brushes.LightGreen);
             }
             if (state == "DISCONNECTED" && _voiceRequestedV12)
             {
@@ -71,7 +71,7 @@ public partial class MainWindow
                 if (settings.AutoReconnect && !_lifetime.IsCancellationRequested)
                 {
                     UpdateVoiceStatusV12("RECONNECTING");
-                    await Task.Delay(TimeSpan.FromSeconds(3));
+                    await Task.Delay(TimeSpan.FromSeconds(2));
                     if (_voiceRequestedV12 && !_lifetime.IsCancellationRequested) await StartVoiceInternalV12();
                 }
             }
@@ -155,8 +155,8 @@ public partial class MainWindow
         {
             _settingsStoreV12.Save(dialog.Settings);
             UpdateVoiceStatusV12("READY");
-            AddLog("Gemini and voice settings saved securely with Windows DPAPI.");
-            SetMissionState("Settings saved", "Gemini intelligence is configured. Start voice, enable vision, or enter a natural-language task.", "READY", Brushes.LightGreen);
+            AddLog("Gemini and female voice settings saved securely with Windows DPAPI.");
+            SetMissionState("Settings saved", "Gemini intelligence is configured. Start voice, enable vision, or enter a complete work mission.", "READY", Brushes.LightGreen);
         }
     }
 
@@ -172,6 +172,9 @@ public partial class MainWindow
             case "execute_local_goal":
                 goal = ReadStringV12(args, "goal") ?? throw new InvalidOperationException("The local goal was empty.");
                 break;
+
+            case "execute_task_batch":
+                return await ExecuteTaskBatchV15Async(args, cancellationToken).ConfigureAwait(false);
 
             case "open_application":
                 var application = ReadStringV12(args, "application") ?? throw new InvalidOperationException("Application name was missing.");
@@ -219,7 +222,7 @@ public partial class MainWindow
             case "organize_files":
                 goal = "Organize local files into a verified folder";
                 CopyArgumentV14(args, arguments, "action", "organize");
-                CopyArgumentV14(args, arguments, "source", "Desktop");
+                CopyArgumentV14(args, arguments, "source", "PC");
                 CopyArgumentV14(args, arguments, "destination");
                 CopyArgumentV14(args, arguments, "folder_name", "Organized Files");
                 CopyArgumentV14(args, arguments, "pattern", "*.*");
