@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using KB.Jarvis.App.Skills;
 
@@ -12,12 +14,35 @@ public partial class MainWindow
     public void InitializeV15()
     {
         InitializeV13();
+        Title = "KB Jarvis OS 15 — Female Executive";
+        ApplyV15Branding(this);
         AddLog("Jarvis 15 female executive persona, fluent voice transport and verified multi-task queue loaded.");
         SetMissionState(
             "Jarvis 15 is ready, Boss.",
             "Give one task or a complete sequence. I will execute supported work in order and verify each result.",
             "FEMALE EXECUTIVE ONLINE",
             Brushes.MediumSpringGreen);
+    }
+
+    private static void ApplyV15Branding(DependencyObject root)
+    {
+        if (root is TextBlock text)
+        {
+            text.Text = text.Text
+                .Replace("KB JARVIS OS 14", "KB JARVIS OS 15", StringComparison.Ordinal)
+                .Replace("V14 OPERATOR ONLINE", "V15 FEMALE EXECUTIVE ONLINE", StringComparison.Ordinal)
+                .Replace("Version 14.0.0", "Version 15.0.0", StringComparison.Ordinal)
+                .Replace("V14 WORK CORE", "V15 EXECUTIVE CORE", StringComparison.Ordinal)
+                .Replace("HIGH-SPEED WORK CORE", "FLUENT FEMALE MULTI-TASK CORE", StringComparison.Ordinal)
+                .Replace("VOICE QUEUE", "FLUENT VOICE", StringComparison.Ordinal)
+                .Replace("OBSERVE · ACT · VERIFY", "UNDERSTAND · EXECUTE · VERIFY", StringComparison.Ordinal);
+        }
+
+        var children = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < children; index++)
+        {
+            ApplyV15Branding(VisualTreeHelper.GetChild(root, index));
+        }
     }
 
     private async Task<string> ExecuteTaskBatchV15Async(JsonElement args, CancellationToken cancellationToken)
