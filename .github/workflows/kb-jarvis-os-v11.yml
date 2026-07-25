@@ -1,4 +1,4 @@
-name: Build KB Jarvis OS v15
+name: Build and install-test KB Jarvis OS v15
 
 on:
   push:
@@ -21,7 +21,7 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
 
     steps:
       - name: Checkout source
@@ -39,18 +39,25 @@ jobs:
           node --check kb-jarvis-os/browser-companion/page-agent.js
           node --check kb-jarvis-os/browser-companion/popup.js
           $manifest = Get-Content kb-jarvis-os/browser-companion/manifest.json -Raw | ConvertFrom-Json
-          if ([version]$manifest.version -lt [version]'15.0.0') { throw "Unexpected Browser Companion version: $($manifest.version)" }
+          if ([version]$manifest.version -lt [version]'15.0.0') {
+            throw "Unexpected Browser Companion version: $($manifest.version)"
+          }
 
       - name: Restore
         run: dotnet restore kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj
 
-      - name: Build and capture concise diagnostics
+      - name: Build and capture diagnostics
         id: build
         continue-on-error: true
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/diagnostics | Out-Null
-          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore --nologo '-clp:ErrorsOnly;NoSummary' 2>&1 | Tee-Object artifacts/diagnostics/build.log
+          dotnet build kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --no-restore `
+            --nologo `
+            '-clp:ErrorsOnly;NoSummary' 2>&1 |
+            Tee-Object artifacts/diagnostics/build.log
           if ($LASTEXITCODE -ne 0) {
             'failed' | Set-Content artifacts/diagnostics/build-status.txt
             exit 1
@@ -71,34 +78,19 @@ jobs:
         shell: pwsh
         run: throw 'The KB Jarvis OS 15 native Windows build failed.'
 
-      - name: Publish self-contained native Windows EXE
-        run: dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v15
-
-      - name: Verify executable
+      - name: Publish clean self-contained Windows x64 app
         shell: pwsh
         run: |
-          $exe = 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe'
-          if (-not (Test-Path $exe)) { throw "Published executable not found: $exe" }
-          $item = Get-Item $exe
-          if ($item.Length -lt 1000000) { throw "Published executable is unexpectedly small." }
-          Get-FileHash $exe -Algorithm SHA256 | Format-List
-          @(
-            'KB Jarvis OS 15.0.0',
-            'Professional female multilingual executive persona',
-            'Fluent bounded voice transport with echo suppression and session resumption',
-            'Verified sequential multi-task mission queue',
-            'Folder creation, file search, organization, move and copy workflows',
-            'Custom HTML CSS JavaScript and PHP Website Studio with backups',
-            'YouTube search and playback verification',
-            'Existing-session WordPress page and post draft or publish workflow',
-            'Existing-session WhatsApp verified messaging',
-            'Screen, camera, desktop input and Browser Companion integration',
-            'Developer: KB (Khuda Bakhsh)',
-            "Built: $(Get-Date -Format o)",
-            "SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
-          ) | Set-Content 'artifacts/KB-Jarvis-OS-v15/BUILD_INFO.txt'
+          dotnet publish kb-jarvis-os/src/KB.Jarvis.App/KB.Jarvis.App.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/KB-Jarvis-OS-v15
 
-      - name: Include Browser Companion and acceptance docs
+      - name: Add Browser Companion and documentation
         shell: pwsh
         run: |
           Copy-Item -Recurse -Force kb-jarvis-os/browser-companion artifacts/KB-Jarvis-OS-v15/BrowserCompanion
@@ -111,6 +103,129 @@ jobs:
           node --check $worker
           node --check $agent
 
+      - name: Verify published executable
+        shell: pwsh
+        run: |
+          $exe = 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe'
+          if (-not (Test-Path $exe)) { throw "Published executable not found: $exe" }
+          $item = Get-Item $exe
+          if ($item.Length -lt 1000000) { throw 'Published executable is unexpectedly small.' }
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash
+          @(
+            'KB Jarvis OS 15.0.1 clean source build',
+            'No post-build binary modification',
+            'Professional female multilingual executive persona',
+            'Fluent bounded voice transport with echo suppression and session resumption',
+            'Verified sequential multi-task mission queue',
+            'File Organizer, Website Studio, YouTube, WordPress and WhatsApp skills loaded through InitializeV14',
+            'Screen, camera, desktop input and Browser Companion integration',
+            'Developer: KB (Khuda Bakhsh)',
+            "Built: $(Get-Date -Format o)",
+            "Portable EXE SHA256: $hash"
+          ) | Set-Content 'artifacts/KB-Jarvis-OS-v15/BUILD_INFO.txt'
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+
+      - name: Launch-test clean portable app
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe').Path
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 10
+          $process.Refresh()
+          if ($process.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-4)} -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|BadImageFormat|\.NET Runtime|Application Error' } |
+              Select-Object -First 12 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "Portable KB Jarvis exited during startup with code $($process.ExitCode)."
+          }
+          Write-Host "Portable startup passed. PID=$($process.Id)"
+          Stop-Process -Id $process.Id -Force
+          'Portable startup smoke test: PASSED' | Add-Content 'artifacts/KB-Jarvis-OS-v15/BUILD_INFO.txt'
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build real Windows Setup EXE
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/installer | Out-Null
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc 'kb-jarvis-os/installer/KB-Jarvis-OS-v15.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with code $LASTEXITCODE" }
+          $setup = 'artifacts/installer/KB-Jarvis-OS-v15-Setup.exe'
+          if (-not (Test-Path $setup)) { throw "Setup executable not produced: $setup" }
+          Get-FileHash $setup -Algorithm SHA256 | Format-List
+
+      - name: Silent install launch and uninstall test
+        shell: pwsh
+        run: |
+          $setup = (Resolve-Path 'artifacts/installer/KB-Jarvis-OS-v15-Setup.exe').Path
+          $installDir = Join-Path $env:RUNNER_TEMP 'KB-Jarvis-OS-v15-Installed'
+          if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
+
+          $install = Start-Process -FilePath $setup `
+            -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$installDir" `
+            -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "Installer returned exit code $($install.ExitCode)." }
+
+          $installedExe = Join-Path $installDir 'KB_Jarvis_OS.exe'
+          if (-not (Test-Path $installedExe)) { throw "Installed application was not found: $installedExe" }
+
+          $process = Start-Process -FilePath $installedExe -WorkingDirectory $installDir -PassThru
+          Start-Sleep -Seconds 10
+          $process.Refresh()
+          if ($process.HasExited) {
+            $events = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match 'KB_Jarvis_OS|BadImageFormat|\.NET Runtime|Application Error' } |
+              Select-Object -First 12 TimeCreated, ProviderName, Id, LevelDisplayName, Message |
+              Format-List | Out-String
+            Write-Host $events
+            throw "Installed KB Jarvis exited during startup with code $($process.ExitCode)."
+          }
+          Write-Host "Installed app startup passed. PID=$($process.Id)"
+          Stop-Process -Id $process.Id -Force
+
+          $uninstaller = Join-Path $installDir 'unins000.exe'
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller was not found: $uninstaller" }
+          $uninstall = Start-Process -FilePath $uninstaller `
+            -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' `
+            -PassThru -Wait
+          if ($uninstall.ExitCode -ne 0) { throw "Uninstaller returned exit code $($uninstall.ExitCode)." }
+          Start-Sleep -Seconds 2
+          if (Test-Path $installedExe) { throw 'Uninstall verification failed: installed EXE still exists.' }
+
+          @(
+            'Real Setup installation test: PASSED',
+            'Installed app startup test: PASSED',
+            'Uninstall test: PASSED',
+            "Setup SHA256: $((Get-FileHash $setup -Algorithm SHA256).Hash)"
+          ) | Set-Content 'artifacts/installer/INSTALLER_TEST.txt'
+
+      - name: Package final release
+        shell: pwsh
+        run: |
+          $release = 'artifacts/KB-Jarvis-OS-v15-FINAL'
+          New-Item -ItemType Directory -Force -Path $release | Out-Null
+          Copy-Item 'artifacts/installer/KB-Jarvis-OS-v15-Setup.exe' $release
+          Copy-Item 'artifacts/installer/INSTALLER_TEST.txt' $release
+          Compress-Archive -Path 'artifacts/KB-Jarvis-OS-v15/*' -DestinationPath "$release/KB-Jarvis-OS-v15-Portable.zip" -Force
+          @(
+            'KB Jarvis OS 15.0.1 FINAL',
+            '',
+            'Recommended: double-click KB-Jarvis-OS-v15-Setup.exe and follow the installer.',
+            'The installer creates Start Menu and optional Desktop shortcuts and includes uninstall support.',
+            'Portable alternative: extract KB-Jarvis-OS-v15-Portable.zip and run KB_Jarvis_OS.exe.',
+            '',
+            'Both portable and installed application startup tests passed on Windows x64 CI.',
+            'No post-build binary patching was used.'
+          ) | Set-Content "$release/INSTALL_FIRST.txt"
+          Get-FileHash "$release/KB-Jarvis-OS-v15-Setup.exe" -Algorithm SHA256 | Format-List
+          Get-FileHash "$release/KB-Jarvis-OS-v15-Portable.zip" -Algorithm SHA256 | Format-List
+
       - name: Package standalone GitHub-ready source
         shell: pwsh
         run: |
@@ -118,67 +233,22 @@ jobs:
           New-Item -ItemType Directory -Force -Path $source | Out-Null
           Copy-Item -Recurse -Force kb-jarvis-os/* $source
           New-Item -ItemType Directory -Force -Path "$source/.github/workflows" | Out-Null
-          $worker = "$source/browser-companion/service-worker.js"
-          $agent = "$source/browser-companion/page-agent.js"
-          (Get-Content $worker -Raw).Replace("const VERSION = '14.0.0';", "const VERSION = '15.0.0';") | Set-Content $worker -NoNewline
-          (Get-Content $agent -Raw).Replace("'14.0.0'", "'15.0.0'") | Set-Content $agent -NoNewline
-          @'
-          name: Build KB Jarvis OS 15
-          on:
-            push:
-              branches: [ main ]
-            pull_request:
-              branches: [ main ]
-            workflow_dispatch:
-          permissions:
-            contents: read
-          jobs:
-            build-windows:
-              runs-on: windows-latest
-              timeout-minutes: 35
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-dotnet@v4
-                  with:
-                    dotnet-version: '8.0.x'
-                - name: Validate Browser Companion
-                  shell: pwsh
-                  run: |
-                    node --check browser-companion/service-worker.js
-                    node --check browser-companion/page-agent.js
-                    node --check browser-companion/popup.js
-                    $manifest = Get-Content browser-companion/manifest.json -Raw | ConvertFrom-Json
-                    if ([version]$manifest.version -lt [version]'15.0.0') { throw "Unexpected Browser Companion version" }
-                - name: Restore
-                  run: dotnet restore src/KB.Jarvis.App/KB.Jarvis.App.csproj
-                - name: Build
-                  run: dotnet build src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --no-restore
-                - name: Publish Windows x64
-                  run: dotnet publish src/KB.Jarvis.App/KB.Jarvis.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/KB-Jarvis-OS-v15
-                - name: Upload Windows build
-                  uses: actions/upload-artifact@v4
-                  with:
-                    name: KB-Jarvis-OS-v15-Windows-x64
-                    path: artifacts/KB-Jarvis-OS-v15/
-                    if-no-files-found: error
-          '@ | Set-Content "$source/.github/workflows/windows-build.yml"
-          @'
-          # KB Jarvis OS 15
+          Copy-Item '.github/workflows/kb-jarvis-os-v11.yml' "$source/.github/workflows/windows-build.yml"
+          @(
+            '# KB Jarvis OS 15',
+            '',
+            'Professional female multimodal Windows and browser work assistant.',
+            '',
+            'Developer: KB (Khuda Bakhsh)',
+            '',
+            'This is a standalone GitHub-ready source tree containing the native app, Browser Companion, real Inno Setup installer and Windows CI workflow.'
+          ) | Set-Content "$source/REPOSITORY_README.md"
 
-          Professional female multimodal Windows and browser work assistant.
-
-          Developer: KB (Khuda Bakhsh)
-
-          This folder is a standalone GitHub repository layout. Push its contents to an empty repository, then enable GitHub Actions to build the self-contained Windows x64 executable.
-          '@ | Set-Content "$source/REPOSITORY_README.md"
-          node --check $worker
-          node --check $agent
-
-      - name: Upload Windows build
+      - name: Upload final installer and portable release
         uses: actions/upload-artifact@v4
         with:
-          name: KB-Jarvis-OS-v15-Windows-x64
-          path: artifacts/KB-Jarvis-OS-v15/
+          name: KB-Jarvis-OS-v15-FINAL-Installer-and-Portable
+          path: artifacts/KB-Jarvis-OS-v15-FINAL/
           if-no-files-found: error
           retention-days: 30
 
@@ -200,7 +270,7 @@ jobs:
         with:
           name: KB-Jarvis-OS-v15-Compiler-Diagnostics
           path: diagnostics
-      - name: Print exact compiler errors
+      - name: Print compiler errors
         run: |
           echo '===== EXACT KB JARVIS V15 COMPILER ERRORS ====='
           cat diagnostics/build.log
