@@ -31,7 +31,7 @@ internal sealed record StoredJarvisSettings(
 
 public sealed class JarvisSettingsStore
 {
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("KB-Jarvis-OS-v15-Khuda-Bakhsh");
+    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("KB-Jarvis-OS-v12-Khuda-Bakhsh");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public string SettingsDirectory { get; } = Path.Combine(
