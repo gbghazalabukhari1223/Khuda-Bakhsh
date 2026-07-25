@@ -7,6 +7,12 @@ on:
     paths:
       - 'kb-jarvis-os/**'
       - '.github/workflows/kb-jarvis-os-v15-launch-smoke.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kb-jarvis-os/**'
+      - '.github/workflows/kb-jarvis-os-v15-launch-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -43,7 +49,6 @@ jobs:
         shell: pwsh
         run: |
           $exe = Resolve-Path 'artifacts/KB-Jarvis-OS-v15/KB_Jarvis_OS.exe'
-          $before = Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-2)} -ErrorAction SilentlyContinue
           $process = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 8
           $process.Refresh()
